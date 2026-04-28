@@ -119,6 +119,13 @@ rm(dt1) #remove the original uncleaned data file
 
 ```
 
+#Filter data to the window of time we are interested in
+```{r}
+W6_streamconc <- W6_streamconc %>% 
+  filter(Date > "1980-01-01" & Date< "2022-12-31")
+```
+
+
 #Summarize your data by month and year for graphing
 DESCRIBE timestep(s) of your data here: Monthly
 In the example below we are averaging over sites for each month
@@ -135,11 +142,12 @@ W6_streamconc_year <- W6_streamconc %>%
   summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
             .groups = "drop")
 
-#save these??
-#write.csv(api_data, here("data", "api_download.csv"))
+#save these?? Right now no, and there is no data folder in the project
+#write.csv(data_name, here("data", "data_name.csv"))
 ```
 
-#Graph DOC and DIC by month and year in ggplot
+#Graph your analytes by month and year in ggplot
+In this example, we have DIC and DOC
 ```{r}
 DIC_month <- ggplot(W6_streamconc_month, aes(x = month, y = DIC)) +
   geom_point(size = 1) +
@@ -179,7 +187,6 @@ DOC_year <- ggplot(W6_streamconc_year, aes(x = year, y = DOC)) +
 ```
 
 #Save all your plots to the graph folder
-
 ```{r}
 plots <- list(DIC_month, DOC_month, DIC_year, DOC_year) #change to your graph names
 names <- c("DIC_month", "DOC_month", "DIC_year", "DOC_year") #change to names
