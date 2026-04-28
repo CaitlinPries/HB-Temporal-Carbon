@@ -20,6 +20,7 @@ knitr::opts_knit$set(root.dir = here())
 
 ```
 
+#DESCRIBE DATA HERE: W6 stream concentrations
 
 #Dealing with NA codes
 DESCRIBE the NA system for your dataset (below is example from Nina's work on the stream chemistry data):
@@ -88,43 +89,110 @@ detectionLimits_Driscoll <- list(
   Cl = 0.55/2
 )
 
-W6_longitudinal <- dt1 %>%
+W6_streamconc <- dt1 %>%
   mutate(Date = as.Date(Date)) %>% #convert to Date object
   mutate(across(  #replace -777.77 (values below the detection limit) with half the limit
     .cols = names(detectionLimits_Driscoll),
     .fns = ~ ifelse(.x == -777.77, detectionLimits_Driscoll[[cur_column()]], .x)))
 
 #take a look to make sure the data is behaving how you want it to
-summary(W6_longitudinal) 
+summary(W6_streamconc) 
 
 #Note that total monomeric Al (Altm) still has some values below -100. Deal with them:
-unique(W6_longitudinal$Altm[which(W6_longitudinal$Altm < -100)]) 
+unique(W6_streamconc$Altm[which(W6_streamconc$Altm < -100)]) 
 #They are:
 #[1] -1999.98  -887.01  -886.78  -886.64 -1777.76  -888.87
 #take a closer look
-View(W6_longitudinal[which(W6_longitudinal$Altm < -100),])
+#View(W6_longitudinal[which(W6_longitudinal$Altm < -100),])
 
 #Change the Altm with values < -100 to NA and then remove rows from the df with no chemistry data for any analyte:
-W6_longitudinal <- W6_longitudinal %>%
+W6_streamconc <- W6_streamconc %>%
   mutate(Altm = ifelse(Altm < -100, NA, Altm)) %>%
   filter(!if_all(pH:TN, is.na))
 
 #look at the data again
-str(W6_longitudinal)  
-summary(W6_longitudinal)  
+str(W6_streamconc)  
+summary(W6_streamconc)  
 
 #clean up
 rm(dt1) #remove the original uncleaned data file
 
 ```
 
-#Summarize data by week, month, and year for graphing
-
+#Summarize your data by month and year for graphing
+DESCRIBE timestep(s) of your data here: Monthly
+In the example below we are averaging over sites for each month
 ```{r}
+W6_streamconc_month <- W6_streamconc %>%
+  mutate(month = floor_date(Date, "month")) %>% #by month, converts all dates to 1st of month
+  group_by(month) %>%
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
+            .groups = "drop")
 
+W6_streamconc_year <- W6_streamconc %>%
+  mutate(year = floor_date(Date, "year")) %>% #by year, converts all dates to 1st of year
+  group_by(year) %>%
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
+            .groups = "drop")
 
-
-write.csv(api_data, here("data", "api_download.csv"))
+#save these??
+#write.csv(api_data, here("data", "api_download.csv"))
 ```
 
+#Graph DOC and DIC by month and year in ggplot
+```{r}
+DIC_month <- ggplot(W6_streamconc_month, aes(x = month, y = DIC)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Month",
+    y = "Mean DIC",
+    title = "Monthly Mean DIC Over Time") +
+  theme_minimal()
 
+DOC_month <- ggplot(W6_streamconc_month, aes(x = month, y = DOC)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Month",
+    y = "Mean DOC",
+    title = "Monthly Mean DOC Over Time") +
+  theme_minimal()
+
+DIC_year <- ggplot(W6_streamconc_year, aes(x = year, y = DIC)) +
+  geom_point(size = 2) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Mean DIC",
+    title = "Yearly Mean DIC Over Time") +
+  theme_minimal()
+
+DOC_year <- ggplot(W6_streamconc_year, aes(x = year, y = DOC)) +
+  geom_point(size = 2) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Mean DOC",
+    title = "Yearly Mean DOC Over Time") +
+  theme_minimal()
+```
+
+#Save all your plots to the graph folder
+
+```{r}
+plots <- list(DIC_month, DOC_month, DIC_year, DOC_year) #change to your graph names
+names <- c("DIC_month", "DOC_month", "DIC_year", "DOC_year") #change to names
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+```
+
+LASTLY push your changes to our github repo!!
