@@ -1,0 +1,224 @@
+---
+title: "HB Temporal C Synthesis"
+author: "Heili Lowman"
+date: "`r Sys.Date()`"
+output: html_document
+---
+#Setup
+```{r setup, include=FALSE}
+rm(list = ls()) #clear R environment
+
+# Check for and install required packages and load libraries
+for (package in c( 'tidyverse', 'here')) {    #can add more packages to this vector
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package)
+    library(package, character.only=T)
+  }
+}
+
+knitr::opts_knit$set(root.dir = here())
+
+```
+
+# Stream chemistry data #
+
+#TITLE FROM EDI: Continuous precipitation and stream chemistry data, Hubbard Brook Ecosystem Study, 1963 – ongoing.
+DESCRIBE DATA: Precipitation and stream chemistry concentrations, core weekly data
+
+#Dealing with NA codes
+DESCRIBE the NA system for your dataset: NA, data available
+
+#Access data from EDI
+
+```{r access data from EDI}
+options(HTTPUserAgent="EDI_CodeGen")
+
+inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/208/14/024b6acc5cb2e03a14fff5558bbffc0c" #paste url here
+infile1 <- tempfile()
+try(download.file(inUrl1,infile1,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
+if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
+
+dt1 <-read.csv(infile1, stringsAsFactors=F, na.strings = c("NA")) #add in NA codes here!
+unlink(infile1)
+
+rm(inUrl1, infile1)
+```
+
+#Clean up your data
+DESCRIBE how you clean up your data.
+YOU will have to convert the Date field properly using as.Date. If date is stored in a YYYY-MM-DD format, no need to specify the format. If not, scroll down to bottom of this page to see how to describe various formats: https://www.r-bloggers.com/2013/08/date-formats-in-r/
+
+#Description of detection limits from the methods metadata: pH - not available; DOC - 0.34 mg/L; DIC - not available; conductivity - not available; NO3 - 0.056 mg/L; SO4 - 0.15 mg/L; Ca - 0.028 mg/L. It is suggested to dataset users to use a value of one half the detection limit when a value for a solute is less than the detection limit.
+
+Note, need to look up LOD for DIC in particular as not provided in the methods sheet on EDI.
+
+Also, I am using data from Watershed 6 only here, since it is considered the biogeochemical reference watershed at Hubbard Brook.
+
+#Make the changes.
+
+```{r clean up data}
+
+streamchem <- dt1 %>%
+  mutate(Date = as.Date(date)) %>% #convert to Date object
+  mutate(DOC = ifelse(DOC < 0.34, 0.34/2, DOC),
+         NO3 = ifelse(NO3 < 0.056, 0.056/2, NO3),
+         SO4 = ifelse(SO4 < 0.15, 0.15/2, SO4),
+         Ca = ifelse(Ca < 0.028, 0.028/2, Ca))
+
+#take a look to make sure the data is behaving how you want it to
+summary(streamchem) 
+
+#Remove rows from the df with no chemistry data for any analyte:
+W6_streamchem <- streamchem %>%
+  filter(site == "W6") %>%
+  filter(!if_all(pH:pHmetrohm, is.na))
+
+#look at the data again
+str(W6_streamchem)  
+summary(W6_streamchem)  
+
+#clean up
+rm(dt1) #remove the original uncleaned data file
+
+```
+
+# Streamflow data #
+
+#TITLE FROM EDI: Hubbard Brook Experimental Forest: Daily Streamflow by Watershed, 1956 - present
+DESCRIBE DATA: Daily streamflow data
+
+#Dealing with NA codes
+DESCRIBE the NA system for your dataset: NA, data available
+
+#Access data from EDI
+
+```{r access data from EDI}
+options(HTTPUserAgent="EDI_CodeGen")
+
+inUrl2  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/2/15/27aa4722460e3177c9a1206327add13d" #paste url here
+infile2 <- tempfile()
+try(download.file(inUrl2,infile2,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
+if (is.na(file.size(infile2))) download.file(inUrl2,infile2,method="auto")
+
+dt2 <-read.csv(infile2, stringsAsFactors=F, na.strings = c("NA")) #add in NA codes here!
+unlink(infile2)
+
+rm(inUrl2, infile2)
+```
+
+#Clean up your data
+DESCRIBE how you clean up your data.
+YOU will have to convert the Date field properly using as.Date. If date is stored in a YYYY-MM-DD format, no need to specify the format. If not, scroll down to bottom of this page to see how to describe various formats: https://www.r-bloggers.com/2013/08/date-formats-in-r/
+
+#Make the changes.
+
+```{r clean up data}
+
+streamflow <- dt2 # no detection limits with flow
+
+#take a look to make sure the data is behaving how you want it to
+summary(streamflow) 
+
+#Remove rows from the df with no chemistry data for any analyte:
+W6_streamflow <- streamflow %>%
+  filter(WS == 6) %>%
+  filter(!if_all(Streamflow, is.na)) %>%
+  # and add conversion from mm/day to L/day
+  # using W6 area from Bailey et al., 2003
+  # 13.2 hectares or 132,000 m^2
+  mutate(Streamflow_Ld = (Streamflow/1000)*132000*1000)
+
+#look at the data again
+str(W6_streamflow)  
+summary(W6_streamflow)  
+
+#clean up
+rm(dt2) #remove the original uncleaned data file
+
+```
+
+#Filter data to the window of time we are interested in
+For now, keep it to its native time frame
+
+#Summarize your data by month and year for graphing
+DESCRIBE timestep(s) of your data here: Monthly, Yearly
+
+Note, stream concentrations need to be volume-weighted by discharge to properly calculate averages, so bringing in the discharge data here as well to properly calculate that.
+
+volume-weighted mean concentration = sum (conc x discharge) / sum (discharge)
+
+Note, also, water chemistry is typically reported at the scale of the water year (at Hubbard Brook, this is June 1 through May 30 of the following year). However, since most terrestrial datasets will likely follow the calendar year, that is what we do below. BE SURE TO EDIT if this decision should change!
+
+```{r}
+
+# First, join the stream chemistry and discharge datasets
+# together, keeping only the days necessary for chem.
+W6_streamchem_flow <- left_join(W6_streamchem, 
+                                W6_streamflow,
+                                by = c("date" = "DATE"))
+
+# And create instantaneous CQ columns for desired analytes.
+W6_streamchem_flow <- W6_streamchem_flow %>%
+  mutate(pH_CQ = pH*Streamflow_Ld)
+
+W6_streamvwm_month <- W6_streamchem_flow %>%
+  mutate(month = floor_date(Date, "month")) %>% #by month, converts all dates to 1st of month
+  drop_na(pH) %>% # remove dates for which there is no data
+  group_by(month) %>%
+  summarise(pH_vwm = sum(pH_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE)) %>%
+  ungroup()
+
+W6_streamvwm_year <- W6_streamchem_flow %>%
+  mutate(year = floor_date(Date, "year")) %>% #by year, converts all dates to 1st of year
+  drop_na(pH) %>% # remove dates for which there is no data
+  group_by(year) %>% # USING CALENDAR NOT WATER YEAR!!!
+  summarise(pH_vwm = sum(pH_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE)) %>%
+  ungroup()
+
+#save these?? Right now no, and there is no data folder in the project
+#write.csv(W6_streamvwm_month, here("data", "W6_streamvwm_month.csv"))
+#write.csv(W6_streamvwm_year, here("data", "W6_streamvwm_year.csv"))
+```
+
+#Graph your analytes by month and year in ggplot
+
+```{r}
+pH_month <- ggplot(W6_streamvwm_month, aes(x = month, y = pH_vwm)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Month",
+    y = "V.W.M. pH",
+    title = "Volume-Weighted Monthly Mean pH Over Time (W6)") +
+  theme_minimal()
+
+pH_year <- ggplot(W6_streamvwm_year, aes(x = year, y = pH_vwm)) +
+  geom_point(size = 2) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "V.W.M. pH",
+    title = "Volume-Weighted Yearly Mean pH Over Time (W6)") +
+  theme_minimal()
+
+```
+
+#Save all your plots to the graph folder
+```{r}
+plots <- list(pH_month, pH_year) #change to your graph names
+names <- c("stream_pH_month", "stream_pH_year") #change to names
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+```
+
+LASTLY push your changes to our github repo!!
