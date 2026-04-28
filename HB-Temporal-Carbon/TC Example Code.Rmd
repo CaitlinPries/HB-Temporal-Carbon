@@ -21,7 +21,7 @@ knitr::opts_knit$set(root.dir = here())
 ```
 
 #TITLE FROM EDI: Longitudinal Stream Chemistry at the Hubbard Brook Experimental Forest, Watershed 6, 1982 - ongoing
-DESCRIBE DATA: W6 stream chemistry concentrations
+DESCRIBE DATA: W6 stream chemistry concentrations, longitudinal (not core weekly data)
 
 #Dealing with NA codes
 DESCRIBE the NA system for your dataset (below is example from Nina's work on the stream chemistry data):
@@ -68,7 +68,7 @@ TN (0.81 umol/L). It is suggested to dataset users to use a value of one half th
 #Make the changes.
 As you will see below, in this example some judgement calls had to be made
 
-```{r access data from EDI}
+```{r clean up data}
 
 #Make a 'look-up' list of values to give measurements below detection limit
 detectionLimits_Driscoll <- list(
@@ -121,11 +121,11 @@ rm(dt1) #remove the original uncleaned data file
 ```
 
 #Filter data to the window of time we are interested in
-```{r}
-W6_streamconc <- W6_streamconc %>% 
-  filter(Date > "1980-01-01" & Date< "2022-12-31")
-```
-
+For now, keep it to its native time frame
+# ```{r}
+# W6_streamconc <- W6_streamconc %>% 
+#   filter(Date > "1980-01-01" & Date< "2022-12-31")
+# ```
 
 #Summarize your data by month and year for graphing
 DESCRIBE timestep(s) of your data here: Monthly
