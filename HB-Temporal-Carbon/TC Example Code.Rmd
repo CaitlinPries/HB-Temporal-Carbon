@@ -20,7 +20,8 @@ knitr::opts_knit$set(root.dir = here())
 
 ```
 
-#DESCRIBE DATA HERE: W6 stream concentrations
+#TITLE FROM EDI: Longitudinal Stream Chemistry at the Hubbard Brook Experimental Forest, Watershed 6, 1982 - ongoing
+DESCRIBE DATA: W6 stream chemistry concentrations
 
 #Dealing with NA codes
 DESCRIBE the NA system for your dataset (below is example from Nina's work on the stream chemistry data):
@@ -154,7 +155,7 @@ DIC_month <- ggplot(W6_streamconc_month, aes(x = month, y = DIC)) +
   geom_line() +
   labs(
     x = "Month",
-    y = "Mean DIC",
+    y = "Mean DIC (umol/L)",
     title = "Monthly Mean DIC Over Time") +
   theme_minimal()
 
@@ -163,7 +164,7 @@ DOC_month <- ggplot(W6_streamconc_month, aes(x = month, y = DOC)) +
   geom_line() +
   labs(
     x = "Month",
-    y = "Mean DOC",
+    y = "Mean DOC (umol/L)",
     title = "Monthly Mean DOC Over Time") +
   theme_minimal()
 
@@ -172,7 +173,7 @@ DIC_year <- ggplot(W6_streamconc_year, aes(x = year, y = DIC)) +
   geom_line() +
   labs(
     x = "Year",
-    y = "Mean DIC",
+    y = "Mean DIC (umol/L)",
     title = "Yearly Mean DIC Over Time") +
   theme_minimal()
 
@@ -181,7 +182,7 @@ DOC_year <- ggplot(W6_streamconc_year, aes(x = year, y = DOC)) +
   geom_line() +
   labs(
     x = "Year",
-    y = "Mean DOC",
+    y = "Mean DOC (umol/L)",
     title = "Yearly Mean DOC Over Time") +
   theme_minimal()
 ```
