@@ -1,0 +1,252 @@
+---
+title: "HB Temporal C Synthesis"
+author: "Sophie von Fromm"
+date: "`r Sys.Date()`"
+output: html_document
+---
+#Setup
+```{r setup, include=FALSE}
+rm(list = ls()) #clear R environment
+
+# Check for and install required packages and load libraries
+for (package in c( 'tidyverse', 'here')) {    #can add more packages to this vector
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package)
+    library(package, character.only=T)
+  }
+}
+
+knitr::opts_knit$set(root.dir = here())
+
+```
+
+#TITLE FROM EDI: Long-term measurements of microbial biomass and activity at the Hubbard Brook Experimental Forest 1994 – ongoing 
+DESCRIBE DATA: Long-term monitoring of soil nitrate (NO3-) and ammonium (NH4+) concentrations, microbial biomass carbon (C) and nitrogen (N) content, microbial respiration, potential nitrification and N mineralization rates, pH, and denitrification potential for west of watershed 6 and watershed 1
+
+#Dealing with NA codes
+DESCRIBE the NA system for your dataset: 
+
+-999.99, Data missing, or not taken at this time
+
+#Access data from EDI
+Note where you need to paste in the url of your dataset
+Note where you need to add in NA codes that you described above for your dataset
+
+```{r access data from EDI}
+options(HTTPUserAgent="EDI_CodeGen")
+
+inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/67/26/a86c0c9ba835e4e09709ed42969c18be"
+infile1 <- tempfile()
+try(download.file(inUrl1,infile1,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
+if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
+
+dt1 <- read.csv(infile1, stringsAsFactors=F, na.strings = c("-9999.99")) 
+unlink(infile1)
+
+rm(inUrl1, infile1)
+```
+
+#Clean up your data
+DESCRIBE how you clean up your data (below is example from Nina's work on the stream chemistry data).
+YOU will have to convert the Date field properly using as.Date. If date is stored in a YYYY-MM-DD format, no need to specify the format. If not, scroll down to bottom of this page to see how to describe various formats: https://www.r-bloggers.com/2013/08/date-formats-in-r/
+
+#Make the changes.
+As you will see below, in this example some judgement calls had to be made
+
+```{r data cleaning}
+
+summary(dt1) 
+
+#Data looks good at a first glimpse
+
+
+```
+
+#Filter data to the window of time we are interested in
+```{r}
+# W6_streamconc <- W6_streamconc %>% 
+#   filter(Date > "1980-01-01" & Date< "2022-12-31")
+```
+
+
+#Summarize your data by month and year for graphing
+DESCRIBE timestep(s) of your data here: Yearly
+In the example below we are averaging over sites for each month
+```{r}
+
+SoilBiomass_year <- dt1 %>%
+  # group by year, treatment, and elevation, and soil horizon
+  group_by(Year, Treatment, El, Hor) %>%
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
+            .groups = "drop") %>% 
+  mutate(Elevation_num = case_when(
+    El == "SF" ~ 790,
+    El == "H" ~ 750,
+    El == "U" ~ 675,
+    El == "M" ~ 600,
+    El == "L" ~ 525
+  ))
+
+SoilBiomass_year$Hor <- factor(SoilBiomass_year$Hor,
+                               levels = c("Oi/Oe", "Oa/A", "Min"),
+                               ordered = TRUE)
+
+summary(SoilBiomass_year)
+```
+
+#Graph your analytes by month and year in ggplot
+In this example, we have DIC and DOC
+```{r}
+SoilBioMass_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = BIOC, 
+                                               color = as.factor(Elevation_num))) +
+  geom_point(size = 1) +
+  facet_wrap(vars(Treatment, Hor)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Microbial biomass (mg/kg)",
+    title = "Yearly microbial biomas over time colored by elevation, grouped \n
+    by soil horizon and watershed (WW6 and W1)",
+    color = "Elevation (m)") +
+  theme_minimal()
+
+SoilResp_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = RESPC, 
+                                   color = as.factor(Elevation_num))) +
+  geom_point(size = 1) +
+  facet_wrap(vars(Treatment, Hor)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Soil respiration rate (mg/kg/day)",
+    title = "Yearly soil respiration rate over time colored by elevation, grouped \n
+    by soil horizon and watershed (WW6 and W1)",
+    color = "Elevation (m)") +
+  theme_minimal()
+
+SoilBioMassN_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = BION, 
+                                                color = as.factor(Elevation_num))) +
+  geom_point(size = 1) +
+  facet_wrap(vars(Treatment, Hor)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Microbial biomass N (mg/kg)",
+    title = "Yearly microbial biomas N over time colored by elevation, grouped \n
+    by soil horizon and watershed (WW6 and W1)",
+    color = "Elevation (m)") +
+  theme_minimal()
+
+SoilNitrate_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = NO3, 
+                                               color = as.factor(Elevation_num))) +
+  geom_point(size = 1) +
+  facet_wrap(vars(Treatment, Hor)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Soil nitrate (mg/kg)",
+    title = "Yearly soil nitrate over time colored by elevation, grouped \n
+    by soil horizon and watershed (WW6 and W1)",
+    color = "Elevation (m)") +
+  theme_minimal()
+
+SoilAmmonium_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = NH4, 
+                                               color = as.factor(Elevation_num))) +
+  geom_point(size = 1) +
+  facet_wrap(vars(Treatment, Hor)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Soil ammonium (mg/kg)",
+    title = "Yearly soil ammonium over time colored by elevation, grouped \n
+    by soil horizon and watershed (WW6 and W1)",
+    color = "Elevation (m)") +
+  theme_minimal()
+
+SoilNIT_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = NIT, 
+                                               color = as.factor(Elevation_num))) +
+  geom_point(size = 1) +
+  facet_wrap(vars(Treatment, Hor)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Soil potential net nitrification (mg/kg/day)",
+    title = "Yearly soil potential net nitrification over time colored by elevation, grouped \n
+    by soil horizon and watershed (WW6 and W1)",
+    color = "Elevation (m)") +
+  theme_minimal()
+
+SoilMIN_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = MIN, 
+                                               color = as.factor(Elevation_num))) +
+  geom_point(size = 1) +
+  facet_wrap(vars(Treatment, Hor)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Soil potential net N mineralization (mg/kg/day)",
+    title = "Yearly soil potential net N mineralization over time colored by elevation, grouped \n
+    by soil horizon and watershed (WW6 and W1)",
+    color = "Elevation (m)") +
+  theme_minimal()
+
+SoilDEA_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = DEA, 
+                                               color = as.factor(Elevation_num))) +
+  geom_point(size = 1) +
+  facet_wrap(vars(Treatment, Hor)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Soil denitrification enzyme activity (unitless)",
+    title = "Yearly soil denitrification enzyme activity over time colored by elevation, grouped \n
+    by soil horizon and watershed (WW6 and W1)",
+    color = "Elevation (m)") +
+  theme_minimal()
+
+SoilH2O_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = H2O, 
+                                               color = as.factor(Elevation_num))) +
+  geom_point(size = 1) +
+  facet_wrap(vars(Treatment, Hor)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Gravimetric water content (g/g)",
+    title = "Yearly gravimetric water content over time colored by elevation, grouped \n
+    by soil horizon and watershed (WW6 and W1)",
+    color = "Elevation (m)") +
+  theme_minimal()
+
+SoilpH_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = pH, 
+                                               color = as.factor(Elevation_num))) +
+  geom_point(size = 1) +
+  facet_wrap(vars(Treatment, Hor)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Soil pH",
+    title = "Yearly soil pH over time colored by elevation, grouped \n
+    by soil horizon and watershed (WW6 and W1)",
+    color = "Elevation (m)") +
+  theme_minimal()
+
+```
+
+#Save all your plots to the graph folder
+```{r}
+plots <- list(SoilBioMass_yr, SoilResp_yr, SoilBioMassN_yr, SoilNitrate_yr,
+              SoilAmmonium_yr, SoilNIT_yr, SoilMIN_yr, SoilDEA_yr, SoilH2O_yr,
+              SoilpH_yr) 
+names <- c("SoilBioMass_yr", "SoilResp_yr", "SoilBioMassN_yr", "SoilNitrate_yr",
+           "SoilAmmonium_yr", "SoilNIT_yr", "SoilMIN_yr", "SoilDEA_yr", "SoilH2O_yr",
+           "SoilpH_yr") 
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+```
+
+LASTLY push your changes to our github repo!!
