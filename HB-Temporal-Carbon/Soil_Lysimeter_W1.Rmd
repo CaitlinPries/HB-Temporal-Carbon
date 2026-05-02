@@ -21,7 +21,7 @@ knitr::opts_knit$set(root.dir = here())
 ```
 
 #TITLE FROM EDI: Chemistry of freely-draining soil solutions at the Hubbard Brook Experimental Forest, Watershed 1, 1996 - present
-DESCRIBE DATA: W1 lysimeter soil solution chemistry data, approximately monthly since 1984 
+DESCRIBE DATA: W1 lysimeter soil solution chemistry data, approximately monthly since 1996 
 Focus variables: pH, ANC, Al, Si, NH4, NO3, DOC, DIC, TN
 
 #Dealing with NA codes
