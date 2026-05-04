@@ -1,0 +1,387 @@
+---
+title: "HB Temporal C Synthesis"
+author: "Caitlin Hicks Pries"
+date: "`r Sys.Date()`"
+output: html_document
+---
+#Setup
+```{r setup, include=FALSE}
+rm(list = ls()) #clear R environment
+
+# Check for and install required packages and load libraries
+for (package in c( 'tidyverse', 'here')) {    #can add more packages to this vector
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package)
+    library(package, character.only=T)
+  }
+}
+
+knitr::opts_knit$set(root.dir = here())
+
+```
+
+#DESCRIBE DATA HERE: Hubbard Brook Routine Seasonal Phenology Measurements 1989-present 
+
+#Dealing with NA codes
+DESCRIBE the NA system for your dataset 
+
+There do not appear to be any NAs
+
+#Access data from EDI
+Note where you need to paste in the url of your dataset
+Note where you need to add in NA codes that you described above for your dataset
+
+```{r access data from EDI}
+options(HTTPUserAgent="EDI_CodeGen")
+
+inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/51/16/9f623c83fb1da7595c6d2d498bde15df" 
+infile1 <- tempfile()
+try(download.file(inUrl1,infile1,method="curl"))
+if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
+
+hb_phenology <-read.csv(infile1,header=F 
+                   ,skip=1
+                   ,sep=","  
+                   , col.names=c(
+                     "YEAR",     
+                     "DATE",
+                     "DAY",
+                     "SEASON",
+                     "SPECIES",
+                     "SITE",
+                     "Phenology State"), check.names=TRUE)
+
+unlink(infile1)
+
+```
+
+#Data cleaning
+Three species are observed across nine sites. 1B = bottom of W1; 4B = bottom of W4; 4T = top of W4; 5B = bottom of W5; 6T = top of W6; 7B = bottom of W7; 7T = top of W7; HQ = headquarters. Note that HQ was added in 1993, so there are 8 sites from 1989-1992
+
+Observations are for phenological stages in the spring and in the fall that are enumerated as 1 -4 using a phenology index
+
+Variables most relevant to a changing carbon cycle are likely timing of the start of the growing season, timing of of the end of the growing season, and growing season length
+
+#For spring: 
+1 = bud swelling, 2 = initial leaf expansion, 3 = leaves 1/2 final length, 4 = canopy in summer condition
+
+#For fall: 
+1  = no green in canopy, leaves 1/2 fallen, 2 = most leaves yellow or colored, most leaves on tree, 3 = many leaves still green, some yellow or coloring, 4 = canopy in summer condition
+
+#Description of timing of spring greenup and fall green down: 
+spring = first day that the phenology index >=3
+fall = first day that the phenology index is <=3
+
+This makes some assumptions about when photosynthesis turns and off
+
+#Make the changes.
+As you will see below, in this example some judgement calls had to be made
+
+```{r access data from EDI}
+
+#define the phenology index threshold that delineates the start and the end of the growing season
+phenology_index_threshold <- 3
+
+#create unique ID that includes YEAR, SPECIES, and SITE for identifying the first and last days that of exceeding the phenology threshold
+hb_phenology$ID = paste(hb_phenology$YEAR, hb_phenology$SPECIES, hb_phenology$SITE)
+
+#subset to only include spring or fall since growing season start and end dates
+#have to be determined for each season separately
+spring_phenology = hb_phenology[hb_phenology$SEASON == "SPRING", ]
+fall_phenology = hb_phenology[hb_phenology$SEASON == "FALL", ]
+
+#for each year, site, and species, select the first instance that the phenology index was >= 3 for spring and <= 3 for fall
+
+greenup = spring_phenology %>%
+  group_by(ID) %>%
+  filter(Phenology.State >= phenology_index_threshold) %>%
+  slice(1) %>%
+  ungroup()
+
+greendown = fall_phenology %>%
+  group_by(ID) %>%
+  filter(Phenology.State <= phenology_index_threshold) %>%
+  slice(1) %>%
+  ungroup()
+
+#rename columns and drop some (not needed anymore)
+greenup <- greenup %>%
+  select(
+    everything(),
+    spring_date = DATE,
+    spring_doy = DAY,
+    spring_index = Phenology.State,
+    -SEASON
+  )
+
+greendown <- greendown %>%
+  select(
+    everything(),
+    fall_date = DATE,
+    fall_doy = DAY,
+    fall_index = Phenology.State,
+    -YEAR,
+    -SEASON,
+    -SPECIES,
+    -SITE
+  )
+
+#merge greenup and greendown to enable calculation of growing season length
+growing_season <- greenup %>%
+  left_join(
+    greendown,
+    by = "ID"
+  )
+
+#calculate growing season length
+growing_season$gs_length = growing_season$fall_doy - growing_season$spring_doy
+
+#convert dates to Date objects
+growing_season$spring_date = as.Date(growing_season$spring_date)
+growing_season$fall_date = as.Date(growing_season$fall_date)
+
+#take a look to make sure the data is behaving how you want it to
+summary(growing_season) 
+
+#clean up
+rm(hb_phenology, spring_phenology, fall_phenology) #remove the original uncleaned data files
+
+```
+
+#Summarize your data by month and year for graphing
+Note that this step is skipped here because data are already in an annual timestep so code is commented out for now
+
+Instead, created subsets for plotting to separate data by site, keeping data together by watershed even if split into top (T) or bottom (B)
+
+DESCRIBE timestep(s) of your data here: annual
+In the example below we are averaging over sites for each month
+```{r}
+
+site_1 <- growing_season %>% 
+  filter(SITE == "1B")
+
+site_4 <- growing_season %>% 
+  filter(SITE == "4B" | SITE == "4T")
+
+site_5 <- growing_season %>% 
+  filter(SITE == "5B" | SITE == "5T")
+
+site_6 <- growing_season %>% 
+  filter(SITE == "6T")
+
+site_7 <- growing_season %>% 
+  filter(SITE == "7B" | SITE == "7T")
+
+site_HQ <- growing_season %>% 
+  filter(SITE == "HQ")
+
+
+#W6_streamconc_month <- W6_streamconc %>%
+#  mutate(month = floor_date(Date, "month")) %>% #by month, converts all dates to 1st of month
+#  group_by(month) %>%
+#  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
+#            .groups = "drop")
+
+#W6_streamconc_year <- W6_streamconc %>%
+#  mutate(year = floor_date(Date, "year")) %>% #by year, converts all dates to 1st of year
+#  group_by(year) %>%
+#  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
+#            .groups = "drop")
+
+#save these?? Right now no, and there is no data folder in the project
+#write.csv(data_name, here("data", "data_name.csv"))
+```
+
+#Graph your data by year in ggplot
+In this version, plots are grouped by watershed, with points for species
+```{r}
+
+#growing season start
+gs_start_ws1 <-ggplot(site_1, aes(x= YEAR, y = spring_doy, color = SPECIES)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Day of Year",
+    title = "Green Up Date Over Time W1") +
+  theme_minimal()
+
+gs_start_ws4 <-ggplot(site_4, aes(x= YEAR, y = spring_doy, color = SPECIES, linetype = SITE)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Day of Year",
+    title = "Green Up Date Over Time W4") +
+  theme_minimal()
+
+gs_start_ws5 <-ggplot(site_5, aes(x= YEAR, y = spring_doy, color = SPECIES, linetype = SITE)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Day of Year",
+    title = "Green Up Date Over Time W5") +
+  theme_minimal()
+
+gs_start_ws6 <-ggplot(site_1, aes(x= YEAR, y = spring_doy, color = SPECIES)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Day of Year",
+    title = "Green Up Date Over Time W6") +
+  theme_minimal()
+
+gs_start_ws7 <-ggplot(site_5, aes(x= YEAR, y = spring_doy, color = SPECIES, linetype = SITE)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Day of Year",
+    title = "Green Up Date Over Time W7") +
+  theme_minimal()
+
+gs_start_HQ <-ggplot(site_1, aes(x= YEAR, y = spring_doy, color = SPECIES)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Day of Year",
+    title = "Green Up Date Over Time HQ") +
+  theme_minimal()
+
+#growing season end
+gs_end_ws1 <-ggplot(site_1, aes(x= YEAR, y = fall_doy, color = SPECIES)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Day of Year",
+    title = "Green Down Date Over Time W1") +
+  theme_minimal()
+
+gs_end_ws4 <-ggplot(site_4, aes(x= YEAR, y = fall_doy, color = SPECIES, linetype = SITE)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Day of Year",
+    title = "Green Down Date Over Time W4") +
+  theme_minimal()
+
+gs_end_ws5 <-ggplot(site_5, aes(x= YEAR, y = fall_doy, color = SPECIES, linetype = SITE)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Day of Year",
+    title = "Green Down Date Over Time W5") +
+  theme_minimal()
+
+gs_end_ws6 <-ggplot(site_1, aes(x= YEAR, y = fall_doy, color = SPECIES)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Day of Year",
+    title = "Green Down Date Over Time W6") +
+  theme_minimal()
+
+gs_end_ws7 <-ggplot(site_5, aes(x= YEAR, y = fall_doy, color = SPECIES, linetype = SITE)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Day of Year",
+    title = "Green Down Date Over Time W7") +
+  theme_minimal()
+
+gs_end_HQ <-ggplot(site_1, aes(x= YEAR, y = fall_doy, color = SPECIES)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Day of Year",
+    title = "Green Down Date Over Time HQ") +
+  theme_minimal()
+
+#growing season length
+gs_length_ws1 <-ggplot(site_1, aes(x= YEAR, y = gs_length, color = SPECIES)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Growing Season Length Over Time W1") +
+  theme_minimal()
+
+gs_length_ws4 <-ggplot(site_4, aes(x= YEAR, y = gs_length, color = SPECIES, linetype = SITE)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Growing Season Length Over Time W4") +
+  theme_minimal()
+
+gs_length_ws5 <-ggplot(site_5, aes(x= YEAR, y = gs_length, color = SPECIES, linetype = SITE)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Growing Season Length Over Time W5") +
+  theme_minimal()
+
+gs_length_ws6 <-ggplot(site_1, aes(x= YEAR, y = gs_length, color = SPECIES)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Growing Season Length Over Time W6") +
+  theme_minimal()
+
+gs_length_ws7 <-ggplot(site_5, aes(x= YEAR, y = gs_length, color = SPECIES, linetype = SITE)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Growing Season Length Over Time W7") +
+  theme_minimal()
+
+gs_length_HQ <-ggplot(site_1, aes(x= YEAR, y = gs_length, color = SPECIES)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Growing Season Length Over Time HQ") +
+  theme_minimal()
+
+```
+
+#Save all your plots to the graph folder
+```{r}
+
+#make list of plots
+plots <- list(gs_start_ws1, gs_start_ws4, gs_start_ws5, gs_start_ws6, gs_start_ws7, gs_start_HQ, gs_end_ws1, gs_end_ws4, gs_end_ws5, gs_end_ws6, gs_end_ws7, gs_end_HQ,
+gs_length_ws1, gs_length_ws4, gs_length_ws5, gs_length_ws6, gs_length_ws7, gs_length_HQ) 
+
+#provide names
+names <- c("gs_start_ws1", "gs_start_ws4", "gs_start_ws5", "gs_start_ws6", "gs_start_ws7", "gs_start_HQ", "gs_end_ws1", "gs_end_ws4", "gs_end_ws5", "gs_end_ws6", "gs_end_ws7", "gs_end_HQ", "gs_length_ws1", "gs_length_ws4", "gs_length_ws5", "gs_length_ws6", "gs_length_ws7", "gs_length_HQ") 
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+```
+
+LASTLY push your changes to our github repo!!
