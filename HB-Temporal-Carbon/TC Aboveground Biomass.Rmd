@@ -1,0 +1,153 @@
+---
+title: "HB Temporal C Synthesis: Aboveground Biomass"
+author: "Caitlin Hicks Pries, Emerson Conrad-Rooney"
+date: "`r Sys.Date()`"
+output: html_document
+---
+#Setup
+```{r setup, include=FALSE}
+rm(list = ls()) #clear R environment
+
+# Check for and install required packages and load libraries
+for (package in c( 'tidyverse', 'here', 'pak', 'plotrix')) {    #can add more packages to this vector
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package)
+    library(package, character.only=T)
+  }
+}
+
+knitr::opts_knit$set(root.dir = here())
+```
+
+#Set up: HubbardBrookForestAnalytics package
+https://github.com/kearutherford/HubbardBrookForestAnalytics
+This package has internal data from Hubbard Brook
+```{r install HubbardBrookForestAnalytics package}
+# Install and load HubbardBrookForestAnalytics
+pak::pak('kearutherford/HubbardBrookForestAnalytics')
+library(HubbardBrookForestAnalytics)
+```
+
+#TITLES FROM EDI: 
+#Hubbard Brook Experimental Forest: Watershed 1 Tree Inventory, 1996 - ongoing
+DESCRIBE DATA: W6 aboveground biomass data from tree inventories every five years from 1996-2021.
+https://portal.edirepository.org/nis/mapbrowse?packageid=knb-lter-hbr.446.1
+
+#Hubbard Brook Experimental Forest: Watershed 5 Tree Inventory, 1982 - ongoing
+DESCRIBE DATA: W6 aboveground biomass data from tree inventories every five years from 1965-2022.
+https://portal.edirepository.org/nis/mapbrowse?packageid=knb-lter-hbr.447.1
+
+#Hubbard Brook Experimental Forest: Watershed 6 Tree Inventory, 1965 - ongoing
+DESCRIBE DATA: W6 aboveground biomass data from tree inventories every five years from 1965-2019.
+https://portal.edirepository.org/nis/mapbrowse?packageid=knb-lter-hbr.448.1
+
+#Dealing with NA codes
+~No NA values
+
+#Access data from EDI
+The data (EDI URLs listed above) are interally included in the HubbardBrookForestAnalytics package has these data internally, so this code does not have to access the data from EDI.
+
+#Clean up your data
+This is done by the HubbardBrookForestAnalytics package 
+
+#Filter data to the window of time we are interested in
+For now, keep it to its native time frame
+
+#Summarize your data by year for graphing
+DESCRIBE timestep of your data here: Yearly
+
+```{r}
+#Use HBEFBiomass() function to get internal data (data_type = "internal") summarized by plot (results = "by_plot")
+HBEFBiomass_by_plot <- HBEFBiomass(data_type = "internal",
+                               results = "by_plot")
+
+#Summarize mean aboveground biomass by year and watershed
+HBEFBiomass_summary <- HBEFBiomass_by_plot %>%
+  group_by(year, watershed) %>%
+  summarize(above_L_Mg_ha_mean = mean(above_L_Mg_ha),
+            above_L_Mg_ha_SE = std.error(above_L_Mg_ha))
+
+#Change Year to be numeric
+HBEFBiomass_summary$year <- as.numeric(HBEFBiomass_summary$year)
+```
+
+#Graph your data by year (~5 years) in ggplot
+```{r}
+HBEFBiomass_W1 <- 
+  ggplot(HBEFBiomass_summary[HBEFBiomass_summary$watershed == "W1",], aes(x = year, y = above_L_Mg_ha_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Aboveground live tree biomass (Mg/ha)",
+    title = "Watershed 1: Aboveground Living Biomass for Trees and Saplings") +
+  geom_errorbar(aes(x = year, ymin=above_L_Mg_ha_mean-above_L_Mg_ha_SE, ymax=above_L_Mg_ha_mean+above_L_Mg_ha_SE), width=0.5) +
+    ylim(0,225) +
+  theme_minimal()
+
+HBEFBiomass_W5 <- 
+  ggplot(HBEFBiomass_summary[HBEFBiomass_summary$watershed == "W5",], aes(x = year, y = above_L_Mg_ha_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Aboveground live tree biomass (Mg/ha)",
+    title = "Watershed 5: Aboveground Living Biomass for Trees and Saplings") +
+  geom_errorbar(aes(x = year, ymin=above_L_Mg_ha_mean-above_L_Mg_ha_SE, ymax=above_L_Mg_ha_mean+above_L_Mg_ha_SE), width=0.5) +
+    ylim(0,210) +
+  theme_minimal()
+
+HBEFBiomass_W6 <- 
+  ggplot(HBEFBiomass_summary[HBEFBiomass_summary$watershed == "W6",], aes(x = year, y = above_L_Mg_ha_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Aboveground live tree biomass (Mg/ha)",
+    title = "Watershed 6: Aboveground Living Biomass for Trees and Saplings") +
+  geom_errorbar(aes(x = year, ymin=above_L_Mg_ha_mean-above_L_Mg_ha_SE, ymax=above_L_Mg_ha_mean+above_L_Mg_ha_SE), width=0.5) +
+    ylim(0,200) +
+  theme_minimal()
+
+HBEFBiomass_W6 <- 
+  ggplot(HBEFBiomass_summary[HBEFBiomass_summary$watershed == "W6",], aes(x = year, y = above_L_Mg_ha_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Aboveground live tree biomass (Mg/ha)",
+    title = "Watershed 6: Aboveground Living Biomass for Trees and Saplings") +
+  geom_errorbar(aes(x = year, ymin=above_L_Mg_ha_mean-above_L_Mg_ha_SE, ymax=above_L_Mg_ha_mean+above_L_Mg_ha_SE), width=0.5) +
+    ylim(0,200) +
+  theme_minimal()
+
+HBEFBiomass_W1.W5.W6 <- 
+  ggplot(HBEFBiomass_summary, aes(x = year, y = above_L_Mg_ha_mean, color = watershed)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Aboveground live tree biomass (Mg/ha)",
+    title = "Aboveground Living Biomass for Trees and Saplings") +
+  geom_errorbar(aes(x = year, ymin=above_L_Mg_ha_mean-above_L_Mg_ha_SE, ymax=above_L_Mg_ha_mean+above_L_Mg_ha_SE), width=0.5) +
+    ylim(0,225) +
+  theme_minimal()
+```
+
+#Save all your plots to the graph folder
+```{r}
+plots <- list(HBEFBiomass_W1, HBEFBiomass_W5, HBEFBiomass_W6, HBEFBiomass_W1.W5.W6)
+names <- c("Aboveground_Biomass_W1", "Aboveground_Biomass_W4", "Aboveground_Biomass_W6", "Aboveground_Biomass_W1.W5.W6") 
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+```
+
+LASTLY push your changes to our github repo!!
