@@ -67,7 +67,7 @@ dt1 %>%
 
 dt2 <- dt1 %>% 
   dplyr::filter(duplicate != "dup" | is.na(duplicate)) %>% 
-  dplyr::select(site, date, timeEST, uniqueID, pH, DOC, spCond, NO3)
+  dplyr::select(site, date, timeEST, uniqueID, fieldCode, water Yr, pH, DOC, spCond, NO3)
 
 summary(dt2)
 
