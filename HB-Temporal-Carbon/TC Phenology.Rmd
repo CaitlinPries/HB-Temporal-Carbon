@@ -9,7 +9,7 @@ output: html_document
 rm(list = ls()) #clear R environment
 
 # Check for and install required packages and load libraries
-for (package in c( 'tidyverse', 'here')) {    #can add more packages to this vector
+for (package in c( 'tidyverse', 'here', 'plotrix')) {    #can add more packages to this vector
   if (!require(package, character.only=T, quietly=T)) {
     install.packages(package)
     library(package, character.only=T)
