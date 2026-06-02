@@ -1,0 +1,200 @@
+---
+title: "HB Temporal C Synthesis"
+author: "Sophie von Fromm"
+date: "`r Sys.Date()`"
+output: html_document
+---
+#Setup
+```{r setup, include=FALSE}
+rm(list = ls()) #clear R environment
+
+# Check for and install required packages and load libraries
+for (package in c( 'tidyverse', 'here')) {    #can add more packages to this vector
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package)
+    library(package, character.only=T)
+  }
+}
+
+knitr::opts_knit$set(root.dir = here())
+
+```
+
+#TITLE FROM EDI: Continuous precipitation and stream chemistry data, Hubbard Brook Ecosystem Study, 1963 – ongoing 
+DESCRIBE DATA: Long-term monitoring of Stream and Precipitation Chemistry. Focusing on precipitation pH, DOC
+specific conductivity, and NO3.
+
+#Dealing with NA codes
+DESCRIBE the NA system for your dataset: 
+
+NA, Data missing, or not taken at this time
+
+#Access data from EDI
+Note where you need to paste in the url of your dataset
+Note where you need to add in NA codes that you described above for your dataset
+
+```{r access data from EDI}
+options(HTTPUserAgent="EDI_CodeGen")
+
+inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/208/14/f148543b93982fd52f7089d2f2f51e85"
+infile1 <- tempfile()
+try(download.file(inUrl1,infile1,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
+if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
+
+dt1 <- read.csv(infile1, stringsAsFactors=F, na.strings = c("NA")) 
+unlink(infile1)
+
+rm(inUrl1, infile1)
+```
+
+#Clean up your data
+DESCRIBE how you clean up your data (below is example from Nina's work on the stream chemistry data).
+YOU will have to convert the Date field properly using as.Date. If date is stored in a YYYY-MM-DD format, no need to specify the format. If not, scroll down to bottom of this page to see how to describe various formats: https://www.r-bloggers.com/2013/08/date-formats-in-r/
+
+Removed samples flagged as duplicates (filter != "Dup)
+
+Removed sites == "S". From 1963-1969, South facing precipitation samples were 
+chosen from the “cleanest” precipitation data and reported as site=S
+
+#Make the changes.
+
+
+```{r data cleaning}
+
+summary(dt1) 
+
+#Data looks good at a first glimpse
+
+dt1 %>% 
+  count(duplicate)
+
+dt2 <- dt1 %>% 
+  dplyr::filter(duplicate != "Dup" | is.na(duplicate)) %>% 
+  dplyr::filter(site != "S" | is.na(site)) %>% 
+  dplyr::select(site, date, uniqueID, fieldCode, waterYr, duplicate,
+                pH, DOC, spCond, NO3, SO4)
+
+summary(dt2)
+
+dt2 %>% 
+  count(site)
+
+dt2 %>% 
+  count(duplicate)
+
+
+```
+
+#Filter data to the window of time we are interested in
+```{r}
+# W6_streamconc <- W6_streamconc %>% 
+#   filter(Date > "1980-01-01" & Date< "2022-12-31")
+```
+
+##STOPPED HERE##
+
+#Summarize your data by month and year for graphing
+DESCRIBE timestep(s) of your data here: Monthly
+Grouped by waterYr for now
+Averaged analyte for time-step; assuming it is corrected for volume (should be double-checked again)
+Averaged across all sites (rain gauges)
+
+```{r}
+
+atm_WaterYear <- dt2 %>%
+  group_by(waterYr) %>% 
+  summarise(across(
+      where(is.numeric), 
+      list(mean = ~ mean(.x, na.rm = TRUE), 
+           sd = ~ sd(.x, na.rm = TRUE),
+           se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x))))),
+    .groups = "drop"
+  )
+
+summary(atm_WaterYear)
+```
+
+#Graph your analytes by year in ggplot
+# y-scales are on different scales
+```{r}
+atm_WaterYear_pH <- atm_WaterYear %>% 
+  drop_na(pH_mean) %>% 
+  ggplot(aes(x = waterYr, y = pH_mean)) +
+  geom_point(size = 1) +
+  geom_errorbar(aes(ymin = pH_mean - pH_se, ymax = pH_mean + pH_se)) +
+  geom_line() +
+  labs(
+    x = "Water year",
+    y = "pH in precipitation",
+    title = "Water year pH in precipitation (mean + SE) ") +
+  theme_minimal()
+
+atm_WaterYear_DOC <- atm_WaterYear %>% 
+  drop_na(DOC_mean) %>%
+  ggplot(aes(x = waterYr, y = DOC_mean)) +
+  geom_point(size = 1) +
+  geom_errorbar(aes(ymin = DOC_mean - DOC_se, ymax = DOC_mean + DOC_se)) +
+  geom_line() +
+  labs(
+    x = "Water year",
+    y = "DOC (mg/L) in precipitation",
+    title = "Water year DOC (mg/L) in precipitation (mean + SE) ") +
+  theme_minimal()
+
+atm_WaterYear_spCond <- atm_WaterYear %>% 
+  drop_na(spCond_mean) %>%
+  ggplot(aes(x = waterYr, y = spCond_mean)) +
+  geom_point(size = 1) +
+  geom_errorbar(aes(ymin = spCond_mean - spCond_se, ymax = spCond_mean + spCond_se)) +
+  geom_line() +
+  labs(
+    x = "Water year",
+    y = "Specific conductivity (uS/cm) in precipitation",
+    title = "Water year specific conductivity (uS/cm) in precipitation (mean + SE) ") +
+  theme_minimal()
+
+atm_WaterYear_NO3 <- atm_WaterYear %>% 
+  drop_na(NO3_mean) %>%
+  ggplot(aes(x = waterYr, y = NO3_mean)) +
+  geom_point(size = 1) +
+  geom_errorbar(aes(ymin = NO3_mean - NO3_se, ymax = NO3_mean + NO3_se)) +
+  geom_line() +
+  labs(
+    x = "Water year",
+    y = "NO3 (mg/L) in precipitation",
+    title = "Water year nitrate (mg/L) in precipitation (mean + SE) ") +
+  theme_minimal()
+
+atm_WaterYear_SO4 <- atm_WaterYear %>% 
+  drop_na(SO4_mean) %>%
+  ggplot(aes(x = waterYr, y = SO4_mean)) +
+  geom_point(size = 1) +
+  geom_errorbar(aes(ymin = SO4_mean - SO4_se, ymax = SO4_mean + SO4_se)) +
+  geom_line() +
+  labs(
+    x = "Water year",
+    y = "SO4 (mg/L) in precipitation",
+    title = "Water year sulfate (mg/L) in precipitation (mean + SE) ") +
+  theme_minimal()
+
+```
+
+#Save all your plots to the graph folder
+```{r}
+plots <- list(atm_WaterYear_pH, atm_WaterYear_DOC, atm_WaterYear_spCond, 
+              atm_WaterYear_NO3, atm_WaterYear_SO4) 
+names <- c("atm_WaterYear_pH", "atm_WaterYear_DOC", "atm_WaterYear_spCond", 
+           "atm_WaterYear_NO3", "atm_WaterYear_SO4") 
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs/Atmosphere", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+```
+
+LASTLY push your changes to our github repo!!
