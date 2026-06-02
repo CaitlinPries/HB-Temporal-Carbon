@@ -53,6 +53,9 @@ YOU will have to convert the Date field properly using as.Date. If date is store
 
 Removed samples flagged as duplicates (filter != "Dup)
 
+Removed sites == "S". From 1963-1969, South facing precipitation samples were 
+chosen from the “cleanest” precipitation data and reported as site=S
+
 #Make the changes.
 
 
@@ -66,10 +69,18 @@ dt1 %>%
   count(duplicate)
 
 dt2 <- dt1 %>% 
-  dplyr::filter(duplicate != "dup" | is.na(duplicate)) %>% 
-  dplyr::select(site, date, timeEST, uniqueID, fieldCode, water Yr, pH, DOC, spCond, NO3)
+  dplyr::filter(duplicate != "Dup" | is.na(duplicate)) %>% 
+  dplyr::filter(site != "S" | is.na(site)) %>% 
+  dplyr::select(site, date, uniqueID, fieldCode, waterYr, duplicate,
+                pH, DOC, spCond, NO3, SO4)
 
 summary(dt2)
+
+dt2 %>% 
+  count(site)
+
+dt2 %>% 
+  count(duplicate)
 
 
 ```
@@ -83,192 +94,101 @@ summary(dt2)
 ##STOPPED HERE##
 
 #Summarize your data by month and year for graphing
-DESCRIBE timestep(s) of your data here: Yearly
-Averaging over watershed (treatment), elevation, and horizon for each year
+DESCRIBE timestep(s) of your data here: Monthly
+Grouped by waterYr for now
+Averaged analyte for time-step; assuming it is corrected for volume (should be double-checked again)
+Averaged across all sites (rain gauges)
+
 ```{r}
 
-SoilBiomass_year <- dt1 %>%
-  # group by year, treatment, and elevation, and soil horizon
-  group_by(Year, Treatment, El, Hor) %>%
+atm_WaterYear <- dt2 %>%
+  group_by(waterYr) %>% 
   summarise(across(
       where(is.numeric), 
       list(mean = ~ mean(.x, na.rm = TRUE), 
            sd = ~ sd(.x, na.rm = TRUE),
            se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x))))),
     .groups = "drop"
-  ) %>% 
-  mutate(Elevation_num = case_when(
-    El == "SF" ~ 790,
-    El == "H" ~ 750,
-    El == "U" ~ 675,
-    El == "M" ~ 600,
-    El == "L" ~ 525
-  ))
+  )
 
-SoilBiomass_year$Hor <- factor(SoilBiomass_year$Hor,
-                               levels = c("Oi/Oe", "Oa/A", "Min"),
-                               ordered = TRUE)
-
-summary(SoilBiomass_year)
+summary(atm_WaterYear)
 ```
 
 #Graph your analytes by year in ggplot
 # y-scales are on different scales
 ```{r}
-SoilBioMass_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = BIOC_mean, 
-                                               color = as.factor(Elevation_num))) +
-  geom_point(size = 1) +
-  geom_errorbar(aes(ymin = BIOC_mean - BIOC_se, ymax = BIOC_mean + BIOC_se)) +
-  facet_wrap(vars(Treatment, Hor), scales = "free_y") +
-  geom_line() +
-  labs(
-    x = "Year",
-    y = "Microbial biomass (mg/kg)",
-    title = "Yearly microbial biomas (mean + SE) over time colored by elevation, 
-    grouped by soil horizon and watershed (WW6 and W1)",
-    color = "Elevation (m)") +
-  theme_minimal()
-
-SoilResp_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = RESPC_mean, 
-                                   color = as.factor(Elevation_num))) +
-  geom_point(size = 1) +
-  geom_errorbar(aes(ymin = RESPC_mean - RESPC_se, ymax = RESPC_mean + RESPC_se)) +
-  facet_wrap(vars(Treatment, Hor), scales = "free_y") +
-  geom_line() +
-  labs(
-    x = "Year",
-    y = "Soil respiration rate (mg/kg/day)",
-    title = "Yearly soil respiration rate (mean + SE) over time colored by elevation, 
-    grouped by soil horizon and watershed (WW6 and W1)",
-    color = "Elevation (m)") +
-  theme_minimal()
-
-SoilBioMassN_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = BION_mean, 
-                                                color = as.factor(Elevation_num))) +
-  geom_point(size = 1) +
-  geom_errorbar(aes(ymin = BION_mean - BION_se, ymax = BION_mean + BION_se)) +
-  facet_wrap(vars(Treatment, Hor), scales = "free_y") +
-  geom_line() +
-  labs(
-    x = "Year",
-    y = "Microbial biomass N (mg/kg)",
-    title = "Yearly microbial biomas N (mean + SE) over time colored by elevation, 
-    grouped by soil horizon and watershed (WW6 and W1)",
-    color = "Elevation (m)") +
-  theme_minimal()
-
-SoilNitrate_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = NO3_mean, 
-                                               color = as.factor(Elevation_num))) +
-  geom_point(size = 1) +
-  geom_errorbar(aes(ymin = NO3_mean - NO3_se, ymax = NO3_mean + NO3_se)) +
-  facet_wrap(vars(Treatment, Hor), scales = "free_y") +
-  geom_line() +
-  labs(
-    x = "Year",
-    y = "Soil nitrate (mg/kg)",
-    title = "Yearly soil nitrate (mean + SE) over time colored by elevation, 
-    grouped by soil horizon and watershed (WW6 and W1)",
-    color = "Elevation (m)") +
-  theme_minimal()
-
-SoilAmmonium_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = NH4_mean, 
-                                               color = as.factor(Elevation_num))) +
-  geom_point(size = 1) +
-  geom_errorbar(aes(ymin = NH4_mean - NH4_se, ymax = NH4_mean + NH4_se)) +
-  facet_wrap(vars(Treatment, Hor), scales = "free_y") +
-  geom_line() +
-  labs(
-    x = "Year",
-    y = "Soil ammonium (mg/kg)",
-    title = "Yearly soil ammonium (mean + SE) over time colored by elevation, 
-    grouped by soil horizon and watershed (WW6 and W1)",
-    color = "Elevation (m)") +
-  theme_minimal()
-
-SoilNIT_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = NIT_mean, 
-                                               color = as.factor(Elevation_num))) +
-  geom_point(size = 1) +
-  geom_errorbar(aes(ymin = NIT_mean - NIT_se, ymax = NIT_mean + NIT_se)) +
-  facet_wrap(vars(Treatment, Hor), scales = "free_y") +
-  geom_line() +
-  labs(
-    x = "Year",
-    y = "Soil potential net nitrification (mg/kg/day)",
-    title = "Yearly soil potential net nitrification (mean + SE) over time colored by elevation, 
-    grouped by soil horizon and watershed (WW6 and W1)",
-    color = "Elevation (m)") +
-  theme_minimal()
-
-SoilMIN_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = MIN_mean, 
-                                               color = as.factor(Elevation_num))) +
-  geom_point(size = 1) +
-  geom_errorbar(aes(ymin = MIN_mean - MIN_se, ymax = MIN_mean + MIN_se)) +
-  facet_wrap(vars(Treatment, Hor), scales = "free_y") +
-  geom_line() +
-  labs(
-    x = "Year",
-    y = "Soil potential net N mineralization (mg/kg/day)",
-    title = "Yearly soil potential net N mineralization (mean + SE) over time colored by elevation, 
-    grouped by soil horizon and watershed (WW6 and W1)",
-    color = "Elevation (m)") +
-  theme_minimal()
-
-SoilDEA_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = DEA_mean, 
-                                               color = as.factor(Elevation_num))) +
-  geom_point(size = 1) +
-  geom_errorbar(aes(ymin = DEA_mean - DEA_se, ymax = DEA_mean + DEA_se)) +
-  facet_wrap(vars(Treatment, Hor), scales = "free_y") +
-  geom_line() +
-  labs(
-    x = "Year",
-    y = "Soil denitrification enzyme activity (unitless)",
-    title = "Yearly soil denitrification enzyme activity (mean + SE) over time colored by elevation, 
-    grouped by soil horizon and watershed (WW6 and W1)",
-    color = "Elevation (m)") +
-  theme_minimal()
-
-SoilH2O_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = H2O_mean, 
-                                               color = as.factor(Elevation_num))) +
-  geom_point(size = 1) +
-  geom_errorbar(aes(ymin = H2O_mean - H2O_se, ymax = H2O_mean + H2O_se)) +
-  facet_wrap(vars(Treatment, Hor), scales = "free_y") +
-  geom_line() +
-  labs(
-    x = "Year",
-    y = "Gravimetric water content (g/g)",
-    title = "Yearly gravimetric water content (mean + SE) over time colored by elevation, 
-    grouped by soil horizon and watershed (WW6 and W1)",
-    color = "Elevation (m)") +
-  theme_minimal()
-
-SoilpH_yr <- ggplot(SoilBiomass_year, aes(x = Year, y = pH_mean, 
-                                               color = as.factor(Elevation_num))) +
+atm_WaterYear_pH <- atm_WaterYear %>% 
+  drop_na(pH_mean) %>% 
+  ggplot(aes(x = waterYr, y = pH_mean)) +
   geom_point(size = 1) +
   geom_errorbar(aes(ymin = pH_mean - pH_se, ymax = pH_mean + pH_se)) +
-  facet_wrap(vars(Treatment, Hor), scales = "free_y") +
   geom_line() +
   labs(
-    x = "Year",
-    y = "Soil pH",
-    title = "Yearly soil pH (mean + SE) over time colored by elevation, 
-    grouped by soil horizon and watershed (WW6 and W1)",
-    color = "Elevation (m)") +
+    x = "Water year",
+    y = "pH in precipitation",
+    title = "Water year pH in precipitation (mean + SE) ") +
+  theme_minimal()
+
+atm_WaterYear_DOC <- atm_WaterYear %>% 
+  drop_na(DOC_mean) %>%
+  ggplot(aes(x = waterYr, y = DOC_mean)) +
+  geom_point(size = 1) +
+  geom_errorbar(aes(ymin = DOC_mean - DOC_se, ymax = DOC_mean + DOC_se)) +
+  geom_line() +
+  labs(
+    x = "Water year",
+    y = "DOC (mg/L) in precipitation",
+    title = "Water year DOC (mg/L) in precipitation (mean + SE) ") +
+  theme_minimal()
+
+atm_WaterYear_spCond <- atm_WaterYear %>% 
+  drop_na(spCond_mean) %>%
+  ggplot(aes(x = waterYr, y = spCond_mean)) +
+  geom_point(size = 1) +
+  geom_errorbar(aes(ymin = spCond_mean - spCond_se, ymax = spCond_mean + spCond_se)) +
+  geom_line() +
+  labs(
+    x = "Water year",
+    y = "Specific conductivity (uS/cm) in precipitation",
+    title = "Water year specific conductivity (uS/cm) in precipitation (mean + SE) ") +
+  theme_minimal()
+
+atm_WaterYear_NO3 <- atm_WaterYear %>% 
+  drop_na(NO3_mean) %>%
+  ggplot(aes(x = waterYr, y = NO3_mean)) +
+  geom_point(size = 1) +
+  geom_errorbar(aes(ymin = NO3_mean - NO3_se, ymax = NO3_mean + NO3_se)) +
+  geom_line() +
+  labs(
+    x = "Water year",
+    y = "NO3 (mg/L) in precipitation",
+    title = "Water year nitrate (mg/L) in precipitation (mean + SE) ") +
+  theme_minimal()
+
+atm_WaterYear_SO4 <- atm_WaterYear %>% 
+  drop_na(SO4_mean) %>%
+  ggplot(aes(x = waterYr, y = SO4_mean)) +
+  geom_point(size = 1) +
+  geom_errorbar(aes(ymin = SO4_mean - SO4_se, ymax = SO4_mean + SO4_se)) +
+  geom_line() +
+  labs(
+    x = "Water year",
+    y = "SO4 (mg/L) in precipitation",
+    title = "Water year sulfate (mg/L) in precipitation (mean + SE) ") +
   theme_minimal()
 
 ```
 
 #Save all your plots to the graph folder
 ```{r}
-plots <- list(SoilBioMass_yr, SoilResp_yr, SoilBioMassN_yr, SoilNitrate_yr,
-              SoilAmmonium_yr, SoilNIT_yr, SoilMIN_yr, SoilDEA_yr, SoilH2O_yr,
-              SoilpH_yr) 
-names <- c("SoilBioMass_yr", "SoilResp_yr", "SoilBioMassN_yr", "SoilNitrate_yr",
-           "SoilAmmonium_yr", "SoilNIT_yr", "SoilMIN_yr", "SoilDEA_yr", "SoilH2O_yr",
-           "SoilpH_yr") 
+plots <- list(atm_WaterYear_pH, atm_WaterYear_DOC, atm_WaterYear_spCond, 
+              atm_WaterYear_NO3, atm_WaterYear_SO4) 
+names <- c("atm_WaterYear_pH", "atm_WaterYear_DOC", "atm_WaterYear_spCond", 
+           "atm_WaterYear_NO3", "atm_WaterYear_SO4") 
 
 for (i in seq_along(plots)) {
   ggsave(
-    filename = here::here("Graphs/Soils", paste0(names[i], ".png")),
+    filename = here::here("Graphs/Atmosphere", paste0(names[i], ".png")),
     plot = plots[[i]],
     width = 8,
     height = 5,
