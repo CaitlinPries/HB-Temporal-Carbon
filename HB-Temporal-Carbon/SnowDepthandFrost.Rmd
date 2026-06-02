@@ -1,0 +1,1209 @@
+---
+title: "SnowDepth"
+author: "Darby Bergl"
+output: html_document
+date: "2026-05-19"
+---
+#Setup
+```{r setup, include=FALSE}
+rm(list = ls()) #clear R environment
+
+# Check for and install required packages and load libraries
+for (package in c( 'tidyverse', 'here')) {    #can add more packages to this vector
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package)
+    library(package, character.only=T)
+  }
+}
+
+knitr::opts_knit$set(root.dir = here())
+
+```
+
+#TITLE FROM EDI: Hubbard Brook Experimental Forest: Weekly Snow and Frost Measurements, 1955 - present
+DESCRIBE DATA: Snow and Frost Measurements using transects underneath the forest canopy adjacent to the established network of standard rain gauges from 1956 to the present. The data are recorded at points along a transect (snow course), which includes 10 points at 2 meter intervals within a 0.25 ha sampling area.   
+
+#Dealing with NA codes
+DESCRIBE the NA system for your dataset: The missing or uncollected data code is listed as -99, and can be found within the detailed metadata under the data entities tab. 
+
+#Access data from EDI
+Note where you need to paste in the url of your dataset
+Note where you need to add in NA codes that you described above for your dataset
+Additional notes here: I used the R code that was produced for this dataset in the EDI portal. It follows the same workflow, assigning NAs and ensureing that the date format is correct when it brings the dataset in, storing it in a dataframe called dt1. There are additional summary statistics with this workflow.
+
+```{r access data from EDI}
+inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/27/21/e9dc11e1518fb5820e614dc512a2517d" 
+infile1 <- tempfile()
+try(download.file(inUrl1,infile1,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
+if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
+
+                   
+ dt1 <-read.csv(infile1,header=F 
+          ,skip=1
+            ,sep=","  
+        , col.names=c(
+                    "WINTER",     
+                    "Date",     
+                    "Site",     
+                    "snow_depth",     
+                    "swe",     
+                    "frost_depth",     
+                    "frost_pct"    ), check.names=TRUE)
+               
+unlink(infile1)
+		    
+# Fix any interval or ratio columns mistakenly read in as nominal and nominal columns read as numeric or dates read as strings
+                                                   
+# attempting to convert dt1$Date dateTime string to R date structure (date or POSIXct)                                
+tmpDateFormat<-"%Y-%m-%d"
+tmp1Date<-as.Date(dt1$Date,format=tmpDateFormat)
+# Keep the new dates only if they all converted correctly
+if(nrow(dt1[dt1$Date != "",]) == length(tmp1Date[!is.na(tmp1Date)])){dt1$Date <- tmp1Date } else {print("Date conversion failed for dt1$Date. Please inspect the data and do the date conversion yourself.")}                                                                    
+                                
+if (class(dt1$Site)!="factor") dt1$Site<- as.factor(dt1$Site)
+if (class(dt1$snow_depth)=="factor") dt1$snow_depth <-as.numeric(levels(dt1$snow_depth))[as.integer(dt1$snow_depth) ]               
+if (class(dt1$snow_depth)=="character") dt1$snow_depth <-as.numeric(dt1$snow_depth)
+if (class(dt1$swe)=="factor") dt1$swe <-as.numeric(levels(dt1$swe))[as.integer(dt1$swe) ]               
+if (class(dt1$swe)=="character") dt1$swe <-as.numeric(dt1$swe)
+if (class(dt1$frost_depth)=="factor") dt1$frost_depth <-as.numeric(levels(dt1$frost_depth))[as.integer(dt1$frost_depth) ]               
+if (class(dt1$frost_depth)=="character") dt1$frost_depth <-as.numeric(dt1$frost_depth)
+if (class(dt1$frost_pct)=="factor") dt1$frost_pct <-as.numeric(levels(dt1$frost_pct))[as.integer(dt1$frost_pct) ]               
+if (class(dt1$frost_pct)=="character") dt1$frost_pct <-as.numeric(dt1$frost_pct)
+                
+# Convert Missing Values to NA for non-dates
+                
+dt1$snow_depth <- ifelse((trimws(as.character(dt1$snow_depth))==trimws("-99")),NA,dt1$snow_depth)               
+suppressWarnings(dt1$snow_depth <- ifelse(!is.na(as.numeric("-99")) & (trimws(as.character(dt1$snow_depth))==as.character(as.numeric("-99"))),NA,dt1$snow_depth))
+dt1$swe <- ifelse((trimws(as.character(dt1$swe))==trimws("-99")),NA,dt1$swe)               
+suppressWarnings(dt1$swe <- ifelse(!is.na(as.numeric("-99")) & (trimws(as.character(dt1$swe))==as.character(as.numeric("-99"))),NA,dt1$swe))
+dt1$frost_depth <- ifelse((trimws(as.character(dt1$frost_depth))==trimws("-99")),NA,dt1$frost_depth)               
+suppressWarnings(dt1$frost_depth <- ifelse(!is.na(as.numeric("-99")) & (trimws(as.character(dt1$frost_depth))==as.character(as.numeric("-99"))),NA,dt1$frost_depth))
+dt1$frost_pct <- ifelse((trimws(as.character(dt1$frost_pct))==trimws("-99")),NA,dt1$frost_pct)               
+suppressWarnings(dt1$frost_pct <- ifelse(!is.na(as.numeric("-99")) & (trimws(as.character(dt1$frost_pct))==as.character(as.numeric("-99"))),NA,dt1$frost_pct))
+
+
+# Here is the structure of the input data frame:
+print("dt1) Structure")		    
+str(dt1)                            
+attach(dt1)                            
+# The analyses below are basic descriptions of the variables. After testing, they should be replaced.                 
+
+print(" ")
+print("Summary of WINTER")
+print(summary(WINTER))
+print(" ")
+print("Summary of Date")
+print(summary(Date))
+print(" ")
+print("Summary of Site")
+print(summary(Site))
+print(" ")
+print("Summary of snow_depth")
+print(summary(snow_depth))
+print(" ")
+print("Summary of swe")
+print(summary(swe))
+print(" ")
+print("Summary of frost_depth")
+print(summary(frost_depth))
+print(" ")
+print("Summary of frost_pct")
+print(summary(frost_pct)) 
+# Get more details on character variables
+                 
+
+print(" ")
+print("Summary of Site")
+print(summary(as.factor(dt1$Site)))
+detach(dt1)  
+```
+
+#Clean up your data YYYY-MM-DD format preffered and did not need to use any other EDI code other than -99 for this dataset. 
+DESCRIBE how you clean up your data (below is example from Nina's work on the stream chemistry data).
+
+# Cleaning up the data. The data from the EDI portal has both snowpack variables (snow depth and snow water equivlent) and frost variables (frost depth and frost percent, representing the percent of points on the transect that had frost present). I am leaving this in the same dataframe and calling the dataset 'snowFrost_data',
+```{r}
+snowFrost_data <- dt1 %>%
+  mutate(Date = as.Date(Date)) %>%
+  mutate(across(
+    c(snow_depth, swe, frost_depth, frost_pct),
+    ~ na_if(.x, -99)
+  ))
+```
+
+
+#Description of detection limits from the methods metadata:
+No detection limits required for this dataset. However, I did add year, month, and day columns from the date column using the lubridate package in R for NA counts across months and years and for plotting of monthly data.
+
+#Filter data to the window of time we are interested in
+For now, keep it to its native time frame
+Checking to see what the range of the dataset is and how many NAs there are each year within that range. Question for Caitlin: 
+```{r}
+library(dplyr)
+range(snowFrost_data $Date) # The dataset ranges from "1955-12-05" to "2025-05-05"
+```
+
+# Summarize data by month and year for graphing.
+The snowcourse network changed through time, with many stations sampled only during the early part of the record. To maintain consistency, long-term summaries are based on STA2, STA9, STA17, STA19, and STAHQ, which comprise the core monitoring network. STA2 (WS1) and STA9 (WS6) represent south-facing snowcourse, while STA17 (WS8) and STA19 (WS8) represent north-facing snowcourse. STAHQ is retained as a long-term headquarters snowcourse. Site-level summaries are also generated to evaluate spatial variability among snowcourses.
+
+For frost analyses, observations prior to 1970 are excluded in these summaries because the dataset metadata indicates that frost measurements before 1970 were sporadic and should be interpreted with caution. Frost records for STA9, STA19, and STAHQ begin in 1994, whereas STA2 and STA17 provide the longest frost records. Frost data from stations 2 and 17 have been collected from 1956 to the present and are representative of mid-elevation south-facing and high-elevation north-facing snowcourse. 
+
+See site info dataset for the elevation information for these different stations: https://portal.edirepository.org/nis/mapbrowse?packageid=knb-lter-hbr.13.24
+Site	        Elevation (m)	
+STA2	        ~560	Mid-elevation south-facing
+STA9	        ~778	High-elevation south-facing
+STA17	        ~898	High-elevation north-facing
+STA19	        ~600	Mid-elevation north-facing
+STAHQ	        ~255	Valley floor / headquarters
+
+```{r}
+# The general workflow below does the following:
+# 1) Long-term network summaries using STA2, STA9, STA17, STA19, and STAHQ.
+#    These sites represent the longest-running snowcourse network.
+# 2) Site-level summaries.
+# 3) Slope-aspect summaries using STA2/STA9 as south-facing and STA17/STA19 as north-facing.
+#
+# Snow depth and SWE are summarized across the full available record.
+# Frost depth and frost occurrence are summarized from 1970 onward because
+# frost measurements prior to 1970 were sporadic and should be interpreted with caution.
+
+snow_longterm <- snowFrost_data %>%
+  filter(Site %in% c("STA2", "STA9", "STA17", "STA19", "STAHQ")) %>%
+  mutate(
+    Site = case_when( #giving more context here to the site codes
+      Site == "STA2"  ~ "STA2: South-facing\nMid Elevation (560 m)",
+      Site == "STA9"  ~ "STA9: South-facing\nHigh Elevation (778 m)",
+      Site == "STA17" ~ "STA17: North-facing\nHigh Elevation (893 m)",
+      Site == "STA19" ~ "STA19: North-facing\nMid Elevation (600 m)",
+      Site == "STAHQ" ~ "STAHQ: Headquarters\nLow Elevation (252 m)"
+    )
+  )
+
+snow_slopes <- snowFrost_data %>%
+  filter(Site %in% c("STA2", "STA9", "STA17", "STA19")) %>%
+  mutate(
+    Site = case_when(  #giving more context here to the site codes
+      Site == "STA2"  ~ "STA2: South-facing\nMid Elevation (560 m)",
+      Site == "STA9"  ~ "STA9: South-facing\nHigh Elevation (778 m)",
+      Site == "STA17" ~ "STA17: North-facing\nHigh Elevation (893 m)",
+      Site == "STA19" ~ "STA19: North-facing\nMid Elevation (600 m)"
+    ),
+    Slope = case_when(
+      Site %in% c(
+        "STA2: South-facing\nMid Elevation (560 m)",
+        "STA9: South-facing\nHigh Elevation (778 m)"
+      ) ~ "South-facing",
+
+      Site %in% c(
+        "STA17: North-facing\nHigh Elevation (893 m)",
+        "STA19: North-facing\nMid Elevation (600 m)"
+      ) ~ "North-facing"
+    )
+  )
+
+# exlcuding pre 1970
+frost_longterm <- snow_longterm %>%
+  filter(Date >= as.Date("1970-01-01"))
+
+frost_slopes <- snow_slopes %>%
+  filter(Date >= as.Date("1970-01-01"))
+
+
+# Snow/SWE summaries
+MonthlySnowData <- snow_longterm %>%
+  mutate(month = floor_date(Date, "month")) %>%
+  group_by(month) %>%
+  summarise(
+    across(
+      c(snow_depth, swe),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+MonthlySnowData_Site <- snow_longterm %>%
+  mutate(month = floor_date(Date, "month")) %>%
+  group_by(month, Site) %>%
+  summarise(
+    across(
+      c(snow_depth, swe),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+MonthlySnowData_Slope <- snow_slopes %>%
+  mutate(month = floor_date(Date, "month")) %>%
+  group_by(month, Slope) %>%
+  summarise(
+    across(
+      c(snow_depth, swe),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+AnnualSnowData <- snow_longterm %>%
+  mutate(year = floor_date(Date, "year")) %>%
+  group_by(year) %>%
+  summarise(
+    across(
+      c(snow_depth, swe),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+AnnualSnowData_Site <- snow_longterm %>%
+  mutate(year = floor_date(Date, "year")) %>%
+  group_by(year, Site) %>%
+  summarise(
+    across(
+      c(snow_depth, swe),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+AnnualSnowData_Slope <- snow_slopes %>%
+  mutate(year = floor_date(Date, "year")) %>%
+  group_by(year, Slope) %>%
+  summarise(
+    across(
+      c(snow_depth, swe),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+
+# Frost summaries: 1970 onward
+MonthlyFrostData <- frost_longterm %>%
+  mutate(month = floor_date(Date, "month")) %>%
+  group_by(month) %>%
+  summarise(
+    across(
+      c(frost_depth, frost_pct),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+MonthlyFrostData_Site <- frost_longterm %>%
+  mutate(month = floor_date(Date, "month")) %>%
+  group_by(month, Site) %>%
+  summarise(
+    across(
+      c(frost_depth, frost_pct),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+MonthlyFrostData_Slope <- frost_slopes %>%
+  mutate(month = floor_date(Date, "month")) %>%
+  group_by(month, Slope) %>%
+  summarise(
+    across(
+      c(frost_depth, frost_pct),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+AnnualFrostData <- frost_longterm %>%
+  mutate(year = floor_date(Date, "year")) %>%
+  group_by(year) %>%
+  summarise(
+    across(
+      c(frost_depth, frost_pct),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+AnnualFrostData_Site <- frost_longterm %>%
+  mutate(year = floor_date(Date, "year")) %>%
+  group_by(year, Site) %>%
+  summarise(
+    across(
+      c(frost_depth, frost_pct),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+AnnualFrostData_Slope <- frost_slopes %>%
+  mutate(year = floor_date(Date, "year")) %>%
+  group_by(year, Slope) %>%
+  summarise(
+    across(
+      c(frost_depth, frost_pct),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+#save these?? Right now no, and there is no data folder in the project
+#write.csv(data_name, here("data", "data_name.csv"))
+```
+
+
+
+
+
+
+#Graphing the snow depth and snow water equivlent by month and year in ggplot
+```{r}
+# Graphing snow depth and snow water equivalent by month and year
+#using a plotting theme so that the axis label size is reasonable.
+SnowTheme <- theme_minimal() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12, color = "black"),
+    plot.title = element_text(size = 16, face = "bold"),
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.ticks = element_line(color = "black"),
+    axis.ticks.length = unit(0.15, "cm"),
+    panel.grid.minor = element_blank()
+  )
+
+# x axis limits
+snow_xlim <- range(MonthlySnowData$month, na.rm = TRUE)
+
+# Monthly plots
+
+# Snow depth overall mean of all of the transects included and the STAHQ
+SnowDepth_month <- ggplot(MonthlySnowData, aes(x = month, y = snow_depth_mean)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.5) +
+  geom_errorbar(
+    aes(
+      ymin = snow_depth_mean - snow_depth_se,
+      ymax = snow_depth_mean + snow_depth_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  scale_x_date(
+  limits = snow_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y"
+) +
+  labs(
+    x = "Month",
+    y = "Mean Snow Depth mm",
+    title = "Monthly Mean Snow Depth Over Time: Long-Term Snowcourse Network"
+  ) +
+  SnowTheme
+
+
+# SWE overall mean of all of the transects included and the STAHQ
+SnowWaterEquivalent_month <- ggplot(MonthlySnowData, aes(x = month, y = swe_mean)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.5) +
+  geom_errorbar(
+    aes(
+      ymin = swe_mean - swe_se,
+      ymax = swe_mean + swe_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  scale_x_date(
+  limits = snow_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y"
+) +
+  labs(
+    x = "Month",
+    y = "Mean Snow Water Equivalent mm",
+    title = "Monthly Mean SWE Over Time: Long-Term Snowcourse Network"
+  ) +
+  SnowTheme
+
+
+# Monthly snow depth mean by site included 
+
+SnowDepth_month_Site <- ggplot(
+  MonthlySnowData_Site,
+  aes(x = month, y = snow_depth_mean)
+) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 1) +
+  geom_errorbar(
+    aes(
+      ymin = snow_depth_mean - snow_depth_se,
+      ymax = snow_depth_mean + snow_depth_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Site, scales = "free_y") +
+  scale_x_date(
+  limits = snow_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y"
+) +
+  labs(
+    x = "Month",
+    y = "Mean Snow Depth mm",
+    title = "Monthly Mean Snow Depth Over Time by Site"
+  ) +
+  SnowTheme
+
+# monthly snow water equivalent mean by site included in analysis
+SnowWaterEquivalent_month_Site <- ggplot(
+  MonthlySnowData_Site,
+  aes(x = month, y = swe_mean)
+) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 1) +
+  geom_errorbar(
+    aes(
+      ymin = swe_mean - swe_se,
+      ymax = swe_mean + swe_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Site, scales = "free_y") +
+  scale_x_date(
+  limits = snow_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y"
+) +
+  labs(
+    x = "Month",
+    y = "Mean Snow Water Equivalent mm",
+    title = "Monthly Mean SWE Over Time by Site"
+  ) +
+  SnowTheme
+
+
+# monthly snow depth mean by slope aspect north and south over time
+
+SnowDepth_month_Slope <- ggplot(
+  MonthlySnowData_Slope,
+  aes(x = month, y = snow_depth_mean)
+) +
+  geom_line(linewidth = 0.8, color = "cornflowerblue") +
+  geom_point(size = 1.5, color = "cornflowerblue") +
+  geom_errorbar(
+    aes(
+      ymin = snow_depth_mean - snow_depth_se,
+      ymax = snow_depth_mean + snow_depth_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Slope, ncol = 1) +
+  scale_x_date(
+  limits = snow_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y"
+) +
+  labs(
+    x = "Month",
+    y = "Mean Snow Depth mm",
+    title = "Monthly Mean Snow Depth by Slope Aspect"
+  ) +
+  SnowTheme
+
+# monthly SWE mean by slope aspect north and south
+SnowWaterEquivalent_month_Slope <- ggplot(
+  MonthlySnowData_Slope,
+  aes(x = month, y = swe_mean)
+) +
+  geom_line(linewidth = 0.8, color = "cornflowerblue") +
+  geom_point(size = 1.5, color = "cornflowerblue") +
+  geom_errorbar(
+    aes(
+      ymin = swe_mean - swe_se,
+      ymax = swe_mean + swe_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Slope, ncol = 1) +
+  scale_x_date(
+  limits = snow_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y"
+) +
+  labs(
+    x = "Month",
+    y = "Mean Snow Water Equivalent mm",
+    title = "Monthly Mean SWE by Slope Aspect"
+  ) +
+  SnowTheme
+
+
+
+# Annual plots
+
+# annual overall snow depth mean of all sites included in analysis
+AnnualSnowDepth <- ggplot(AnnualSnowData, aes(x = year, y = snow_depth_mean)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.5) +
+  geom_errorbar(
+    aes(
+      ymin = snow_depth_mean - snow_depth_se,
+      ymax = snow_depth_mean + snow_depth_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  scale_x_date(
+  limits = snow_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y"
+) +
+  labs(
+    x = "Year",
+    y = "Mean Snow Depth mm",
+    title = "Annual Mean Snow Depth Over Time: Long-Term Snowcourse Network"
+  ) +
+  SnowTheme
+
+
+# annual overall SWE of all sites included in analysis
+AnnualSnowWaterEquivalent <- ggplot(AnnualSnowData, aes(x = year, y = swe_mean)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.5) +
+  geom_errorbar(
+    aes(
+      ymin = swe_mean - swe_se,
+      ymax = swe_mean + swe_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+ scale_x_date(
+  limits = snow_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y"
+)+
+  labs(
+    x = "Year",
+    y = "Mean Snow Water Equivalent mm",
+    title = "Annual Mean SWE Over Time: Long-Term Snowcourse Network"
+  ) +
+  SnowTheme
+
+
+# annual mean snow depth by site included in analysis
+AnnualSnowDepth_Site <- ggplot(
+  AnnualSnowData_Site,
+  aes(x = year, y = snow_depth_mean)
+) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 1) +
+  geom_errorbar(
+    aes(
+      ymin = snow_depth_mean - snow_depth_se,
+      ymax = snow_depth_mean + snow_depth_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Site, scales = "free_y") +
+  scale_x_date(
+  limits = snow_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y"
+) +
+  labs(
+    x = "Year",
+    y = "Mean Snow Depth mm",
+    title = "Annual Mean Snow Depth Over Time by Site"
+  ) +
+  SnowTheme
+
+# annual mean SWE by site included in analysis
+AnnualSnowWaterEquivalent_Site <- ggplot(
+  AnnualSnowData_Site,
+  aes(x = year, y = swe_mean)
+) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 1) +
+  geom_errorbar(
+    aes(
+      ymin = swe_mean - swe_se,
+      ymax = swe_mean + swe_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Site, scales = "free_y") +
+  scale_x_date(
+  limits = snow_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y"
+) +
+  labs(
+    x = "Year",
+    y = "Mean Snow Water Equivalent mm",
+    title = "Annual Mean SWE Over Time by Site"
+  ) +
+  SnowTheme
+
+
+# annual mean snow depth by slope north and south of sites included in analysis
+AnnualSnowDepth_Slope <- ggplot(
+  AnnualSnowData_Slope,
+  aes(x = year, y = snow_depth_mean)
+) +
+  geom_line(linewidth = 0.8, color = "cornflowerblue") +
+  geom_point(size = 1.5, color = "cornflowerblue") +
+  geom_errorbar(
+    aes(
+      ymin = snow_depth_mean - snow_depth_se,
+      ymax = snow_depth_mean + snow_depth_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Slope, ncol = 1) +
+  scale_x_date(
+  limits = snow_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y"
+) +
+  labs(
+    x = "Year",
+    y = "Mean Snow Depth mm",
+    title = "Annual Mean Snow Depth by Slope Aspect"
+  ) +
+  SnowTheme
+
+
+# annual mean SWE by slope north and south of sites included in analysis
+AnnualSnowWaterEquivalent_Slope <- ggplot(
+  AnnualSnowData_Slope,
+  aes(x = year, y = swe_mean)
+) +
+  geom_line(linewidth = 0.8, color = "cornflowerblue") +
+  geom_point(size = 1.5, color = "cornflowerblue") +
+  geom_errorbar(
+    aes(
+      ymin = swe_mean - swe_se,
+      ymax = swe_mean + swe_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Slope, ncol = 1) +
+  scale_x_date(
+  limits = snow_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y"
+) +
+  labs(
+    x = "Year",
+    y = "Mean Snow Water Equivalent mm",
+    title = "Annual Mean SWE by Slope Aspect"
+  ) +
+  SnowTheme
+```
+
+
+
+
+# Graphing the frost data
+```{r}
+# x axis limit
+frost_xlim <- c(as.Date("1970-01-01"), as.Date("2026-05-05"))
+
+#Monthly mean frost depth across all sites included from 1970 on 
+FrostDepth_month <- ggplot(
+  MonthlyFrostData,
+  aes(x = month, y = frost_depth_mean)
+) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.5) +
+  geom_errorbar(
+    aes(
+      ymin = frost_depth_mean - frost_depth_se,
+      ymax = frost_depth_mean + frost_depth_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+ scale_x_date(
+  limits = frost_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y",
+  expand = c(0, 0)
+)+
+  labs(
+    x = "Month",
+    y = "Mean Frost Depth (mm)",
+    title = "Monthly Mean Frost Depth Over Time"
+  ) +
+  SnowTheme
+
+
+#Monthly mean frost occurrence across all sites included from 1970 on 
+FrostOccurrence_month <- ggplot(
+  MonthlyFrostData,
+  aes(x = month, y = frost_pct_mean)
+) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.5) +
+  geom_errorbar(
+    aes(
+      ymin = frost_pct_mean - frost_pct_se,
+      ymax = frost_pct_mean + frost_pct_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+scale_x_date(
+  limits = frost_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y",
+  expand = c(0, 0)
+) +
+  labs(
+    x = "Month",
+    y = "Frost Occurrence (%)",
+    title = "Monthly Frost Occurrence Over Time"
+  ) +
+  SnowTheme
+
+
+# Monthly mean frost depth by site included from 1970 on 
+FrostDepth_month_Site <- ggplot(
+  MonthlyFrostData_Site,
+  aes(x = month, y = frost_depth_mean)
+) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 1) +
+  geom_errorbar(
+    aes(
+      ymin = frost_depth_mean - frost_depth_se,
+      ymax = frost_depth_mean + frost_depth_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Site, scales = "free_y") +
+scale_x_date(
+  limits = frost_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y",
+  expand = c(0, 0)
+) +
+  labs(
+    x = "Month",
+    y = "Mean Frost Depth (mm)",
+    title = "Monthly Mean Frost Depth by Site"
+  ) +
+  SnowTheme
+
+
+# Monthly mean frost occurrence by site included from 1970 on 
+FrostOccurrence_month_Site <- ggplot(
+  MonthlyFrostData_Site,
+  aes(x = month, y = frost_pct_mean)
+) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 1) +
+  geom_errorbar(
+    aes(
+      ymin = frost_pct_mean - frost_pct_se,
+      ymax = frost_pct_mean + frost_pct_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Site, scales = "free_y") +
+  scale_x_date(
+  limits = frost_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y",
+  expand = c(0, 0)
+)+
+  labs(
+    x = "Month",
+    y = "Frost Occurrence (%)",
+    title = "Monthly Frost Occurrence by Site"
+  ) +
+  SnowTheme
+
+
+# Monthly mean frost depth by slope aspect (north and south) included from 1970 on 
+FrostDepth_month_Slope <- ggplot(
+  MonthlyFrostData_Slope,
+  aes(x = month, y = frost_depth_mean)
+) +
+  geom_line(linewidth = 0.8, color = "cornflowerblue") +
+  geom_point(size = 1.5, color = "cornflowerblue") +
+  geom_errorbar(
+    aes(
+      ymin = frost_depth_mean - frost_depth_se,
+      ymax = frost_depth_mean + frost_depth_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Slope, ncol = 1) +
+  scale_x_date(
+  limits = frost_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y",
+  expand = c(0, 0)
+) +
+  labs(
+    x = "Month",
+    y = "Mean Frost Depth (mm)",
+    title = "Monthly Mean Frost Depth by Slope Aspect"
+  ) +
+  SnowTheme
+
+
+
+# Monthly mean frost occurrence by slope aspect (north and south) included from 1970 on 
+FrostOccurrence_month_Slope <- ggplot(
+  MonthlyFrostData_Slope,
+  aes(x = month, y = frost_pct_mean)
+) +
+  geom_line(linewidth = 0.8, color = "cornflowerblue") +
+  geom_point(size = 1.5, color = "cornflowerblue") +
+  geom_errorbar(
+    aes(
+      ymin = frost_pct_mean - frost_pct_se,
+      ymax = frost_pct_mean + frost_pct_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Slope, ncol = 1) +
+  scale_x_date(
+  limits = frost_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y",
+  expand = c(0, 0)
+) +
+  labs(
+    x = "Month",
+    y = "Frost Occurrence (%)",
+    title = "Monthly Frost Occurrence by Slope Aspect"
+  ) +
+  SnowTheme
+
+
+#Annual plots
+#Annual mean frost depth across all sites included from 1970 on 
+
+AnnualFrostDepth <- ggplot(
+  AnnualFrostData,
+  aes(x = year, y = frost_depth_mean)
+) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.5) +
+  geom_errorbar(
+    aes(
+      ymin = frost_depth_mean - frost_depth_se,
+      ymax = frost_depth_mean + frost_depth_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  scale_x_date(
+  limits = frost_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y",
+  expand = c(0, 0)
+) +
+  labs(
+    x = "Year",
+    y = "Mean Frost Depth (mm)",
+    title = "Annual Mean Frost Depth Over Time"
+  ) +
+  SnowTheme
+
+
+#Annual mean frost occurrence across all sites included from 1970 on 
+AnnualFrostOccurrence <- ggplot(
+  AnnualFrostData,
+  aes(x = year, y = frost_pct_mean)
+) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.5) +
+  geom_errorbar(
+    aes(
+      ymin = frost_pct_mean - frost_pct_se,
+      ymax = frost_pct_mean + frost_pct_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  scale_x_date(
+  limits = frost_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y",
+  expand = c(0, 0)
+) +
+  labs(
+    x = "Year",
+    y = "Frost Occurrence (%)",
+    title = "Annual Frost Occurrence Over Time"
+  ) +
+  SnowTheme
+
+
+# Annual mean frost depth by site included from 1970 on 
+AnnualFrostDepth_Site <- ggplot(
+  AnnualFrostData_Site,
+  aes(x = year, y = frost_depth_mean)
+) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 1) +
+  geom_errorbar(
+    aes(
+      ymin = frost_depth_mean - frost_depth_se,
+      ymax = frost_depth_mean + frost_depth_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Site, scales = "free_y") +
+  scale_x_date(
+  limits = frost_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y",
+  expand = c(0, 0)
+) +
+  labs(
+    x = "Year",
+    y = "Mean Frost Depth (mm)",
+    title = "Annual Mean Frost Depth by Site"
+  ) +
+  SnowTheme
+
+
+# Annual mean frost occurrence by site included from 1970 on 
+AnnualFrostOccurrence_Site <- ggplot(
+  AnnualFrostData_Site,
+  aes(x = year, y = frost_pct_mean)
+) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 1) +
+  geom_errorbar(
+    aes(
+      ymin = frost_pct_mean - frost_pct_se,
+      ymax = frost_pct_mean + frost_pct_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Site, scales = "free_y") +
+  scale_x_date(
+  limits = frost_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y",
+  expand = c(0, 0)
+) +
+  labs(
+    x = "Year",
+    y = "Frost Occurrence (%)",
+    title = "Annual Frost Occurrence by Site"
+  ) +
+  SnowTheme
+
+
+# Annual mean frost depth by slope aspect (north and south) included from 1970 on 
+AnnualFrostDepth_Slope <- ggplot(
+  AnnualFrostData_Slope,
+  aes(x = year, y = frost_depth_mean)
+) +
+  geom_line(linewidth = 0.8, color = "cornflowerblue") +
+  geom_point(size = 1.5, color = "cornflowerblue") +
+  geom_errorbar(
+    aes(
+      ymin = frost_depth_mean - frost_depth_se,
+      ymax = frost_depth_mean + frost_depth_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Slope, ncol = 1) +
+  scale_x_date(
+  limits = frost_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y",
+  expand = c(0, 0)
+) +
+  labs(
+    x = "Year",
+    y = "Mean Frost Depth (mm)",
+    title = "Annual Mean Frost Depth by Slope Aspect"
+  ) +
+  SnowTheme
+
+
+# Annual mean frost occurrence by slope aspect (north and south) included from 1970 on 
+AnnualFrostOccurrence_Slope <- ggplot(
+  AnnualFrostData_Slope,
+  aes(x = year, y = frost_pct_mean)
+) +
+  geom_line(linewidth = 0.8, color = "cornflowerblue") +
+  geom_point(size = 1.5, color = "cornflowerblue") +
+  geom_errorbar(
+    aes(
+      ymin = frost_pct_mean - frost_pct_se,
+      ymax = frost_pct_mean + frost_pct_se
+    ),
+    color = "cornflowerblue",
+    width = 0
+  ) +
+  facet_wrap(~ Slope, ncol = 1) +
+  scale_x_date(
+  limits = frost_xlim,
+  date_breaks = "10 years",
+  date_labels = "%Y",
+  expand = c(0, 0)
+) +
+  labs(
+    x = "Year",
+    y = "Frost Occurrence (%)",
+    title = "Annual Frost Occurrence by Slope Aspect"
+  ) +
+  SnowTheme
+```
+
+
+#Save all your plots to the graph folder
+```{r}
+# Create graph directory if it doesn't already exist
+dir.create(
+  "~/Documents/GitHub/HB-Temporal-Carbon/HB-Temporal-Carbon/Graphs/Abiotic",
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+plots <- list(
+  SnowDepth_month,
+  SnowWaterEquivalent_month,
+  SnowDepth_month_Site,
+  SnowWaterEquivalent_month_Site,
+  SnowDepth_month_Slope,
+  SnowWaterEquivalent_month_Slope,
+  
+  AnnualSnowDepth,
+  AnnualSnowWaterEquivalent,
+  AnnualSnowDepth_Site,
+  AnnualSnowWaterEquivalent_Site,
+  AnnualSnowDepth_Slope,
+  AnnualSnowWaterEquivalent_Slope,
+  
+  FrostDepth_month,
+  FrostOccurrence_month,
+  FrostDepth_month_Site,
+  FrostOccurrence_month_Site,
+  FrostDepth_month_Slope,
+  FrostOccurrence_month_Slope,
+  
+  AnnualFrostDepth,
+  AnnualFrostOccurrence,
+  AnnualFrostDepth_Site,
+  AnnualFrostOccurrence_Site,
+  AnnualFrostDepth_Slope,
+  AnnualFrostOccurrence_Slope
+)
+
+names <- c(
+  "SnowDepth_month",
+  "SnowWaterEquivalent_month",
+  "SnowDepth_month_Site",
+  "SnowWaterEquivalent_month_Site",
+  "SnowDepth_month_Slope",
+  "SnowWaterEquivalent_month_Slope",
+  
+  "AnnualSnowDepth",
+  "AnnualSnowWaterEquivalent",
+  "AnnualSnowDepth_Site",
+  "AnnualSnowWaterEquivalent_Site",
+  "AnnualSnowDepth_Slope",
+  "AnnualSnowWaterEquivalent_Slope",
+  
+  "FrostDepth_month",
+  "FrostOccurrence_month",
+  "FrostDepth_month_Site",
+  "FrostOccurrence_month_Site",
+  "FrostDepth_month_Slope",
+  "FrostOccurrence_month_Slope",
+  
+  "AnnualFrostDepth",
+  "AnnualFrostOccurrence",
+  "AnnualFrostDepth_Site",
+  "AnnualFrostOccurrence_Site",
+  "AnnualFrostDepth_Slope",
+  "AnnualFrostOccurrence_Slope"
+)
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = file.path(
+      "~/Documents/GitHub/HB-Temporal-Carbon/HB-Temporal-Carbon/Graphs/Abiotic/SnowDepth_and_Frost",
+      paste0(names[i], ".png")
+    ),
+    plot = plots[[i]],
+    width = 10,
+    height = 6,
+    dpi = 300
+  )
+}
+```
+
+LASTLY push your changes to our github repo!!
