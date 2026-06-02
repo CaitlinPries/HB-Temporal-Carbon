@@ -1,0 +1,724 @@
+---
+title: "AirTemperature"
+output: html_document
+date: "2026-05-19"
+---
+
+#Setup
+```{r setup, include=FALSE}
+rm(list = ls()) #clear R environment
+
+# Check for and install required packages and load libraries
+for (package in c( 'tidyverse', 'here')) {    #can add more packages to this vector
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package)
+    library(package, character.only=T)
+  }
+}
+
+knitr::opts_knit$set(root.dir = here())
+
+```
+
+#TITLE FROM EDI: Hubbard Brook Experimental Forest: Daily Temperature Record, 1955 - ongoing
+DESCRIBE DATA: This dataset contains daily minimum, maximum, and average air temperature measurements collected at the HBEF. Temperature data have been recorded at six locations beginning as early as 1955. Five monitoring sites are located in rain gauge clearings throughout the experimental watersheds (Rain Gauges 1, 6, 14, 17, and 23), and one site is located adjacent to the Headquarters building.
+
+From 1955 to 2014, temperatures were measured continuously using hygrothermographs housed in standard weather shelters. Beginning in 2013, digital temperature sensors housed in solar radiation shields were introduced to collect daily temperature measurements. The dataset provides daily minimum, maximum, and average air temperature values, supporting long-term analyses of climate and environmental change within the Hubbard Brook Experimental Forest.
+
+Station	            Elevation (m)
+Headquarters	        254.6
+Station 1	            478.1 Low elevation
+Station 6	            731.9 Mid elevation
+Station 14            732.1 Mid elevation
+Station 23	          667.5 Mid elevation
+Station 17	          897.6 High
+
+#Dealing with NA codes
+DESCRIBE the NA system for your dataset: The NA system for this dataset is 'NA' rather than a numeric classification.
+
+#Access data from EDI
+Note: This is the code that was provided from the EDI portal to bring the dataset into an R environment. It has more summary information, converts the date using as.date, and handles NAs. 
+```{r access data from EDI}
+options(HTTPUserAgent="EDI_CodeGen")
+
+inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/59/17/9723086870f14b48409869f6c06d6aa8" 
+infile1 <- tempfile()
+try(download.file(inUrl1,infile1,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
+if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
+
+                   
+ dt2 <-read.csv(infile1,header=F 
+          ,skip=1
+            ,sep=","  
+        , col.names=c(
+                    "date",     
+                    "STA",     
+                    "MAX",     
+                    "MIN",     
+                    "AVE",     
+                    "Flag"    ), check.names=TRUE)
+               
+unlink(infile1)
+		    
+# Fix any interval or ratio columns mistakenly read in as nominal and nominal columns read as numeric or dates read as strings
+                                                   
+# attempting to convert dt1$date dateTime string to R date structure (date or POSIXct)                                
+tmpDateFormat<-"%Y-%m-%d"
+tmp1date<-as.Date(dt2$date,format=tmpDateFormat)
+# Keep the new dates only if they all converted correctly
+if(nrow(dt2[dt2$date != "",]) == length(tmp1date[!is.na(tmp1date)])){dt2$date <- tmp1date } else {print("Date conversion failed for dt1$date. Please inspect the data and do the date conversion yourself.")}                                                                    
+                                
+if (class(dt2$STA)!="factor") dt2$STA<- as.factor(dt2$STA)
+if (class(dt2$MAX)=="factor") dt2$MAX <-as.numeric(levels(dt2$MAX))[as.integer(dt2$MAX) ]               
+if (class(dt2$MAX)=="character") dt2$MAX <-as.numeric(dt2$MAX)
+if (class(dt2$MIN)=="factor") dt2$MIN <-as.numeric(levels(dt2$MIN))[as.integer(dt2$MIN) ]               
+if (class(dt2$MIN)=="character") dt2$MIN <-as.numeric(dt2$MIN)
+if (class(dt2$AVE)=="factor") dt2$AVE <-as.numeric(levels(dt2$AVE))[as.integer(dt2$AVE) ]               
+if (class(dt2$AVE)=="character") dt2$AVE <-as.numeric(dt2$AVE)
+if (class(dt2$Flag)!="factor") dt2$Flag<- as.factor(dt2$Flag)
+                
+# Convert Missing Values to NA for non-dates
+                
+dt2$MAX <- ifelse((trimws(as.character(dt2$MAX))==trimws("NA")),NA,dt2$MAX)               
+suppressWarnings(dt2$MAX <- ifelse(!is.na(as.numeric("NA")) & (trimws(as.character(dt2$MAX))==as.character(as.numeric("NA"))),NA,dt2$MAX))
+dt2$MIN <- ifelse((trimws(as.character(dt2$MIN))==trimws("NA")),NA,dt2$MIN)               
+suppressWarnings(dt2$MIN <- ifelse(!is.na(as.numeric("NA")) & (trimws(as.character(dt2$MIN))==as.character(as.numeric("NA"))),NA,dt2$MIN))
+dt2$AVE <- ifelse((trimws(as.character(dt2$AVE))==trimws("NA")),NA,dt2$AVE)               
+suppressWarnings(dt2$AVE <- ifelse(!is.na(as.numeric("NA")) & (trimws(as.character(dt2$AVE))==as.character(as.numeric("NA"))),NA,dt2$AVE))
+dt2$Flag <- as.factor(ifelse((trimws(as.character(dt2$Flag))==trimws("NA")),NA,as.character(dt2$Flag)))
+
+
+# Here is the structure of the input data frame:
+print("dt2) Structure")		    
+str(dt2)                            
+attach(dt2)                            
+# The analyses below are basic descriptions of the variables. After testing, they should be replaced.                 
+
+print(" ")
+print("Summary of date")
+print(summary(date))
+print(" ")
+print("Summary of STA")
+print(summary(STA))
+print(" ")
+print("Summary of MAX")
+print(summary(MAX))
+print(" ")
+print("Summary of MIN")
+print(summary(MIN))
+print(" ")
+print("Summary of AVE")
+print(summary(AVE))
+print(" ")
+print("Summary of Flag")
+print(summary(Flag)) 
+# Get more details on character variables
+                 
+
+print(" ")
+print("Summary of STA")
+print(summary(as.factor(dt2$STA))) 
+
+print(" ")
+print("Summary of Flag")
+print(summary(as.factor(dt2$Flag)))
+detach(dt2) 
+```
+
+#Clean up your data. The data from the EDI portal converts the date using as.date when the dataframe is loaded and handles NAs with the 'NA' code for this dataset. However, I am ensuring that is the case here. I am adding month and year columns to summarize the data by seasons and growing season/non growing season. 
+```{r}
+airTemp_data <- dt2 %>%
+  mutate(
+    date = as.Date(date),
+    Month = month(date),
+    Year = year(date),
+    
+    STA = case_when(
+      STA == "HQ"    ~ "HQ\nLow Elevation\n255 m",
+      STA == "STA1"  ~ "STA1\nLow Elevation\n478 m",
+      STA == "STA23" ~ "STA23\nMid Elevation\n668 m",
+      STA == "STA6"  ~ "STA6\nMid Elevation\n732 m",
+      STA == "STA14" ~ "STA14\nMid Elevation\n732 m",
+      STA == "STA17" ~ "STA17\nHigh Elevation\n898 m"
+    ),
+    
+    GrowingSeason = case_when(
+      Month %in% 5:9 ~ "Growing season",
+      Month %in% c(10, 11, 12, 1, 2, 3, 4) ~ "Non-growing season"
+    ),
+    
+    Season = case_when(
+      Month %in% c(12, 1, 2) ~ "Winter",
+      Month %in% c(3, 4, 5) ~ "Spring",
+      Month %in% c(6, 7, 8) ~ "Summer",
+      Month %in% c(9, 10, 11) ~ "Fall"
+    ),
+    
+    Season = factor(Season, levels = c("Winter", "Spring", "Summer", "Fall")),
+    GrowingSeason = factor(GrowingSeason, levels = c("Growing season", "Non-growing season"))
+  )
+```
+
+
+#Description of detection limits from the methods metadata: 
+No detection limits required for this dataset
+
+#Filter data to the window of time we are interested in
+For now, keep it to its native time frame. For this dataset, the date range is 1955 to 2025. 
+```{r}
+range(airTemp_data$date)
+```
+
+#Summarize your data by month and year for graphing
+DESCRIBE timestep(s) of your data here: The timesteps for this analysis are monthly and annual.
+```{r}
+# Summarize air temperature by month and year for graphing
+# The original dataset contains daily observations.
+# Monthly and annual summaries are calculated as the mean of daily values.
+
+AirTemp_month <- airTemp_data %>%
+  mutate(month = floor_date(date, "month")) %>%
+  group_by(month) %>%
+  summarise(
+    across(
+      c(MAX, MIN, AVE),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+AirTemp_year <- airTemp_data %>%
+  mutate(year = floor_date(date, "year")) %>%
+  group_by(year) %>%
+  summarise(
+    across(
+      c(MAX, MIN, AVE),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+
+
+
+#Station level
+AirTemp_month_STA <- airTemp_data %>%
+  mutate(month = floor_date(date, "month")) %>%
+  group_by(month, STA) %>%
+  summarise(
+    across(
+      c(MAX, MIN, AVE),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+AirTemp_year_STA <- airTemp_data %>%
+  mutate(year = floor_date(date, "year")) %>%
+  group_by(year, STA) %>%
+  summarise(
+    across(
+      c(MAX, MIN, AVE),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+
+
+# Seasonal summaries 
+# Growing season vs non-growing season summaries
+AirTemp_growing <- airTemp_data %>%
+  group_by(Year, GrowingSeason) %>%
+  summarise(
+    across(
+      c(MAX, MIN, AVE),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(year = as.Date(paste0(Year, "-01-01")))
+
+
+AirTemp_growing_STA <- airTemp_data %>%
+  group_by(Year, GrowingSeason, STA) %>%
+  summarise(
+    across(
+      c(MAX, MIN, AVE),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(year = as.Date(paste0(Year, "-01-01")))
+
+
+# Meteorological season summaries
+AirTemp_season <- airTemp_data %>%
+  group_by(Year, Season) %>%
+  summarise(
+    across(
+      c(MAX, MIN, AVE),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(year = as.Date(paste0(Year, "-01-01")))
+
+
+AirTemp_season_STA <- airTemp_data %>%
+  group_by(Year, Season, STA) %>%
+  summarise(
+    across(
+      c(MAX, MIN, AVE),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(year = as.Date(paste0(Year, "-01-01")))
+
+# save these?? Right now no, and there is no data folder in the project
+# write.csv(data_name, here("data", "data_name.csv"))
+```
+
+
+#Graphing air temperature data
+```{r}
+# Graphing monthly, annual, growing season, and seasonal air temperature
+# by mean, maximum, and minimum temperature.
+
+TempTheme <- theme_minimal() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12, color = "black"),
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.ticks = element_line(color = "black"),
+    axis.ticks.length = unit(0.15, "cm"),
+    panel.grid.minor = element_blank()
+  )
+
+temp_xlim <- c(as.Date("1956-01-01"), as.Date("2026-12-31"))
+
+# Add calendar month for faceting monthly plots
+AirTemp_month <- AirTemp_month %>%
+  mutate(
+    MonthName = factor(month.abb[month(month)], levels = month.abb)
+  )
+
+AirTemp_month_STA <- AirTemp_month_STA %>%
+  mutate(
+    MonthName = factor(month.abb[month(month)], levels = month.abb)
+  )
+
+# Monthly plots faceted by calendar month
+make_month_plot <- function(data, meanvar, sevar, ylab, title,
+                            subtitle = NULL) {
+  
+  ggplot(data, aes(x = month, y = .data[[meanvar]])) +
+    geom_line(linewidth = 0.8) +
+    geom_point(size = 1.2) +
+    geom_errorbar(
+      aes(
+        ymin = .data[[meanvar]] - .data[[sevar]],
+        ymax = .data[[meanvar]] + .data[[sevar]]
+      ),
+      color = "#9C1C14",
+      width = 0
+    ) +
+    facet_wrap(~ MonthName, scales = "free_y", ncol = 3) +
+    scale_x_date(
+      limits = temp_xlim,
+      date_breaks = "20 years",
+      date_labels = "%Y",
+      expand = c(0, 0)
+    ) +
+    scale_y_continuous(
+      expand = expansion(mult = c(0.08, 0.08))
+    ) +
+    labs(
+      x = "Year",
+      y = ylab,
+      title = title,
+      subtitle = subtitle
+    ) +
+    TempTheme
+}
+
+# Annual/seasonal/station plots
+make_temp_plot <- function(data, xvar, meanvar, sevar, ylab, title,
+                           subtitle = NULL,
+                           facet_var = NULL,
+                           date_breaks = "10 years") {
+  
+  p <- ggplot(data, aes(x = .data[[xvar]], y = .data[[meanvar]])) +
+    geom_line(linewidth = 0.8) +
+    geom_point(size = 1.5) +
+    geom_errorbar(
+      aes(
+        ymin = .data[[meanvar]] - .data[[sevar]],
+        ymax = .data[[meanvar]] + .data[[sevar]]
+      ),
+      color = "#9C1C14",
+      width = 0
+    ) +
+    scale_x_date(
+      limits = temp_xlim,
+      date_breaks = date_breaks,
+      date_labels = "%Y",
+      expand = c(0, 0)
+    ) +
+    scale_y_continuous(
+      expand = expansion(mult = c(0.08, 0.08))
+    ) +
+    labs(
+      x = "Year",
+      y = ylab,
+      title = title,
+      subtitle = subtitle
+    ) +
+    TempTheme
+  
+  if (!is.null(facet_var)) {
+    p <- p + facet_wrap(vars(.data[[facet_var]]), scales = "free_y")
+  }
+  
+  return(p)
+}
+
+# Monthly overall, faceted by calendar month
+AirTemp_AVE_month <- make_month_plot(
+  AirTemp_month,
+  "AVE_mean",
+  "AVE_se",
+  "Mean Air Temperature (°C)",
+  "Monthly Mean Air Temperature Over Time",
+  subtitle = "Faceted by calendar month; values averaged across stations"
+)
+
+AirTemp_MAX_month <- make_month_plot(
+  AirTemp_month,
+  "MAX_mean",
+  "MAX_se",
+  "Mean Daily Maximum Air Temperature (°C)",
+  "Monthly Mean Daily Maximum Air Temperature Over Time",
+  subtitle = "Faceted by calendar month; values averaged across stations"
+)
+
+AirTemp_MIN_month <- make_month_plot(
+  AirTemp_month,
+  "MIN_mean",
+  "MIN_se",
+  "Mean Daily Minimum Air Temperature (°C)",
+  "Monthly Mean Daily Minimum Air Temperature Over Time",
+  subtitle = "Faceted by calendar month; values averaged across stations"
+)
+
+# Monthly by station/elevation
+AirTemp_AVE_month_STA <- make_temp_plot(
+  AirTemp_month_STA,
+  "month",
+  "AVE_mean",
+  "AVE_se",
+  "Mean Air Temperature (°C)",
+  "Monthly Mean Air Temperature by Station",
+  subtitle = "Stations are labeled by elevation class and elevation",
+  facet_var = "STA",
+  date_breaks = "20 years"
+)
+
+AirTemp_MAX_month_STA <- make_temp_plot(
+  AirTemp_month_STA,
+  "month",
+  "MAX_mean",
+  "MAX_se",
+  "Mean Daily Maximum Air Temperature (°C)",
+  "Monthly Mean Daily Maximum Air Temperature by Station",
+  subtitle = "Stations are labeled by elevation class and elevation",
+  facet_var = "STA",
+  date_breaks = "20 years"
+)
+
+AirTemp_MIN_month_STA <- make_temp_plot(
+  AirTemp_month_STA,
+  "month",
+  "MIN_mean",
+  "MIN_se",
+  "Mean Daily Minimum Air Temperature (°C)",
+  "Monthly Mean Daily Minimum Air Temperature by Station",
+  subtitle = "Stations are labeled by elevation class and elevation",
+  facet_var = "STA",
+  date_breaks = "20 years"
+)
+
+# Annual overall
+AirTemp_AVE_year <- make_temp_plot(
+  AirTemp_year,
+  "year",
+  "AVE_mean",
+  "AVE_se",
+  "Mean Air Temperature (°C)",
+  "Annual Mean Air Temperature Over Time",
+  subtitle = "Values averaged across stations"
+) +
+  coord_cartesian(ylim = c(3.5, 7.5))
+
+AirTemp_MAX_year <- make_temp_plot(
+  AirTemp_year,
+  "year",
+  "MAX_mean",
+  "MAX_se",
+  "Mean Daily Maximum Air Temperature (°C)",
+  "Annual Mean Daily Maximum Air Temperature Over Time",
+  subtitle = "Values averaged across stations"
+) +
+  coord_cartesian(ylim = c(8, 13))
+
+AirTemp_MIN_year <- make_temp_plot(
+  AirTemp_year,
+  "year",
+  "MIN_mean",
+  "MIN_se",
+  "Mean Daily Minimum Air Temperature (°C)",
+  "Annual Mean Daily Minimum Air Temperature Over Time",
+  subtitle = "Values averaged across stations"
+) +
+  coord_cartesian(ylim = c(-2, 3))
+
+# Annual by station/elevation
+AirTemp_AVE_year_STA <- make_temp_plot(
+  AirTemp_year_STA,
+  "year",
+  "AVE_mean",
+  "AVE_se",
+  "Mean Air Temperature (°C)",
+  "Annual Mean Air Temperature by Station",
+  subtitle = "Stations are labeled by elevation class and elevation",
+  facet_var = "STA",
+  date_breaks = "20 years"
+)
+
+AirTemp_MAX_year_STA <- make_temp_plot(
+  AirTemp_year_STA,
+  "year",
+  "MAX_mean",
+  "MAX_se",
+  "Mean Daily Maximum Air Temperature (°C)",
+  "Annual Mean Daily Maximum Air Temperature by Station",
+  subtitle = "Stations are labeled by elevation class and elevation",
+  facet_var = "STA",
+  date_breaks = "20 years"
+)
+
+AirTemp_MIN_year_STA <- make_temp_plot(
+  AirTemp_year_STA,
+  "year",
+  "MIN_mean",
+  "MIN_se",
+  "Mean Daily Minimum Air Temperature (°C)",
+  "Annual Mean Daily Minimum Air Temperature by Station",
+  subtitle = "Stations are labeled by elevation class and elevation",
+  facet_var = "STA",
+  date_breaks = "20 years"
+)
+
+# Growing vs non-growing season
+AirTemp_AVE_growing <- make_temp_plot(
+  AirTemp_growing,
+  "year",
+  "AVE_mean",
+  "AVE_se",
+  "Mean Air Temperature (°C)",
+  "Mean Air Temperature by Growing Season",
+  subtitle = "Growing season = May–September; Non-growing season = October–April; values averaged across stations",
+  facet_var = "GrowingSeason"
+)
+
+AirTemp_MAX_growing <- make_temp_plot(
+  AirTemp_growing,
+  "year",
+  "MAX_mean",
+  "MAX_se",
+  "Mean Daily Maximum Air Temperature (°C)",
+  "Mean Daily Maximum Air Temperature by Growing Season",
+  subtitle = "Growing season = May–September; Non-growing season = October–April; values averaged across stations",
+  facet_var = "GrowingSeason"
+)
+
+AirTemp_MIN_growing <- make_temp_plot(
+  AirTemp_growing,
+  "year",
+  "MIN_mean",
+  "MIN_se",
+  "Mean Daily Minimum Air Temperature (°C)",
+  "Mean Daily Minimum Air Temperature by Growing Season",
+  subtitle = "Growing season = May–September; Non-growing season = October–April; values averaged across stations",
+  facet_var = "GrowingSeason"
+)
+
+# Meteorological seasons
+AirTemp_AVE_season <- make_temp_plot(
+  AirTemp_season,
+  "year",
+  "AVE_mean",
+  "AVE_se",
+  "Mean Air Temperature (°C)",
+  "Mean Air Temperature by Meteorological Season",
+  subtitle = "Winter = Dec–Feb; Spring = Mar–May; Summer = Jun–Aug; Fall = Sep–Nov; values averaged across stations",
+  facet_var = "Season"
+)
+
+AirTemp_MAX_season <- make_temp_plot(
+  AirTemp_season,
+  "year",
+  "MAX_mean",
+  "MAX_se",
+  "Mean Daily Maximum Air Temperature (°C)",
+  "Mean Daily Maximum Air Temperature by Meteorological Season",
+  subtitle = "Winter = Dec–Feb; Spring = Mar–May; Summer = Jun–Aug; Fall = Sep–Nov; values averaged across stations",
+  facet_var = "Season"
+)
+
+AirTemp_MIN_season <- make_temp_plot(
+  AirTemp_season,
+  "year",
+  "MIN_mean",
+  "MIN_se",
+  "Mean Daily Minimum Air Temperature (°C)",
+  "Mean Daily Minimum Air Temperature by Meteorological Season",
+  subtitle = "Winter = Dec–Feb; Spring = Mar–May; Summer = Jun–Aug; Fall = Sep–Nov; values averaged across stations",
+  facet_var = "Season"
+)
+
+# Print plots to check that they look okay
+plot_list <- list(
+  AirTemp_AVE_month,
+  AirTemp_MAX_month,
+  AirTemp_MIN_month,
+  AirTemp_AVE_month_STA,
+  AirTemp_MAX_month_STA,
+  AirTemp_MIN_month_STA,
+  AirTemp_AVE_year,
+  AirTemp_MAX_year,
+  AirTemp_MIN_year,
+  AirTemp_AVE_year_STA,
+  AirTemp_MAX_year_STA,
+  AirTemp_MIN_year_STA,
+  AirTemp_AVE_growing,
+  AirTemp_MAX_growing,
+  AirTemp_MIN_growing,
+  AirTemp_AVE_season,
+  AirTemp_MAX_season,
+  AirTemp_MIN_season
+)
+
+for (p in plot_list) {
+  print(p)
+}
+```
+
+
+
+#Save all your plots to the graph folder
+```{r}
+# Save all air temperature plots
+
+plots <- list(
+  AirTemp_AVE_month,
+  AirTemp_MAX_month,
+  AirTemp_MIN_month,
+
+  AirTemp_AVE_month_STA,
+  AirTemp_MAX_month_STA,
+  AirTemp_MIN_month_STA,
+
+  AirTemp_AVE_year,
+  AirTemp_MAX_year,
+  AirTemp_MIN_year,
+
+  AirTemp_AVE_year_STA,
+  AirTemp_MAX_year_STA,
+  AirTemp_MIN_year_STA,
+
+  AirTemp_AVE_growing,
+  AirTemp_MAX_growing,
+  AirTemp_MIN_growing,
+
+  AirTemp_AVE_season,
+  AirTemp_MAX_season,
+  AirTemp_MIN_season
+)
+
+names <- c(
+  "AirTemp_AVE_month",
+  "AirTemp_MAX_month",
+  "AirTemp_MIN_month",
+
+  "AirTemp_AVE_month_STA",
+  "AirTemp_MAX_month_STA",
+  "AirTemp_MIN_month_STA",
+
+  "AirTemp_AVE_year",
+  "AirTemp_MAX_year",
+  "AirTemp_MIN_year",
+
+  "AirTemp_AVE_year_STA",
+  "AirTemp_MAX_year_STA",
+  "AirTemp_MIN_year_STA",
+
+  "AirTemp_AVE_growing",
+  "AirTemp_MAX_growing",
+  "AirTemp_MIN_growing",
+
+  "AirTemp_AVE_season",
+  "AirTemp_MAX_season",
+  "AirTemp_MIN_season"
+)
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = file.path(
+      "~/Documents/GitHub/HB-Temporal-Carbon/HB-Temporal-Carbon/Graphs/Abiotic/Temperature",
+      paste0(names[i], ".png")
+    ),
+    plot = plots[[i]],
+    width = 10,
+    height = 6,
+    dpi = 300
+  )
+}
+```
+
+LASTLY push your changes to our github repo!!

@@ -159,21 +159,49 @@ W6_streamchem_flow <- left_join(W6_streamchem,
 
 # And create instantaneous CQ columns for desired analytes.
 W6_streamchem_flow <- W6_streamchem_flow %>%
-  mutate(pH_CQ = pH*Streamflow_Ld)
+  mutate(pH_CQ = pH*Streamflow_Ld,
+         DOC_CQ = DOC*Streamflow_Ld,
+         DIC_CQ = DIC*Streamflow_Ld,
+         SC_CQ = spCond*Streamflow_Ld,
+         NO3_CQ = NO3*Streamflow_Ld,
+         SO4_CQ = SO4*Streamflow_Ld,
+         Ca_CQ = Ca*Streamflow_Ld)
 
 W6_streamvwm_month <- W6_streamchem_flow %>%
   mutate(month = floor_date(Date, "month")) %>% #by month, converts all dates to 1st of month
-  drop_na(pH) %>% # remove dates for which there is no data
   group_by(month) %>%
   summarise(pH_vwm = sum(pH_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE),
+            DOC_vwm = sum(DOC_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE),
+            DIC_vwm = sum(DIC_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE),
+            SC_vwm = sum(SC_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE),
+            NO3_vwm = sum(NO3_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE),
+            SO4_vwm = sum(SO4_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE),
+            Ca_vwm = sum(Ca_CQ, na.rm = TRUE)/
               sum(Streamflow_Ld, na.rm = TRUE)) %>%
   ungroup()
 
 W6_streamvwm_year <- W6_streamchem_flow %>%
   mutate(year = floor_date(Date, "year")) %>% #by year, converts all dates to 1st of year
-  drop_na(pH) %>% # remove dates for which there is no data
   group_by(year) %>% # USING CALENDAR NOT WATER YEAR!!!
   summarise(pH_vwm = sum(pH_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE),
+            DOC_vwm = sum(DOC_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE),
+            DIC_vwm = sum(DIC_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE),
+            SC_vwm = sum(SC_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE),
+            NO3_vwm = sum(NO3_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE),
+            SO4_vwm = sum(SO4_CQ, na.rm = TRUE)/
+              sum(Streamflow_Ld, na.rm = TRUE),
+            Ca_vwm = sum(Ca_CQ, na.rm = TRUE)/
               sum(Streamflow_Ld, na.rm = TRUE)) %>%
   ungroup()
 
@@ -190,7 +218,7 @@ pH_month <- ggplot(W6_streamvwm_month, aes(x = month, y = pH_vwm)) +
   geom_line() +
   labs(
     x = "Month",
-    y = "V.W.M. pH",
+    y = "Stream pH",
     title = "Volume-Weighted Monthly Mean pH Over Time (W6)") +
   theme_minimal()
 
@@ -199,16 +227,166 @@ pH_year <- ggplot(W6_streamvwm_year, aes(x = year, y = pH_vwm)) +
   geom_line() +
   labs(
     x = "Year",
-    y = "V.W.M. pH",
+    y = "Stream pH",
     title = "Volume-Weighted Yearly Mean pH Over Time (W6)") +
+  theme_minimal()
+
+# Note, filtering time frame since there is no data for DOC
+# prior to 1992
+DOC_month <- ggplot(W6_streamvwm_month %>%
+                      filter(month > as_date("1991-12-01")), 
+                    aes(x = month, y = DOC_vwm)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Month",
+    y = "Stream DOC",
+    title = "Volume-Weighted Monthly Mean DOC Over Time (W6)") +
+  theme_minimal()
+
+DOC_year <- ggplot(W6_streamvwm_year %>%
+                      filter(year > as_date("1991-01-01")), 
+                  aes(x = year, y = DOC_vwm)) +
+  geom_point(size = 2) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Stream DOC",
+    title = "Volume-Weighted Yearly Mean DOC Over Time (W6)") +
+  theme_minimal()
+
+# Note, filtering time frame since there is no data for DIC
+# prior to 1994
+DIC_month <- ggplot(W6_streamvwm_month %>%
+                      filter(month > as_date("1993-12-01")), 
+                    aes(x = month, y = DIC_vwm)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Month",
+    y = "Stream DIC",
+    title = "Volume-Weighted Monthly Mean DIC Over Time (W6)") +
+  theme_minimal()
+
+DIC_year <- ggplot(W6_streamvwm_year %>%
+                      filter(year > as_date("1993-01-01")), 
+                  aes(x = year, y = DIC_vwm)) +
+  geom_point(size = 2) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Stream DIC",
+    title = "Volume-Weighted Yearly Mean DIC Over Time (W6)") +
+  theme_minimal()
+
+# Note, filtering time frame since there is no data for SC
+# prior to 1965
+SC_month <- ggplot(W6_streamvwm_month %>%
+                      filter(month >= as_date("1965-01-01")), 
+                    aes(x = month, y = SC_vwm)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Month",
+    y = "Stream Sp. Cond.",
+    title = "Volume-Weighted Monthly Mean Specific Conductance Over Time (W6)") +
+  theme_minimal()
+
+SC_year <- ggplot(W6_streamvwm_year %>%
+                      filter(year >= as_date("1965-01-01")), 
+                  aes(x = year, y = SC_vwm)) +
+  geom_point(size = 2) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Stream Sp. Cond.",
+    title = "Volume-Weighted Yearly Mean Specific Conductance Over Time (W6)") +
+  theme_minimal()
+
+# Note, filtering time frame since there is no data for SC
+# prior to 1964
+NO3_month <- ggplot(W6_streamvwm_month %>%
+                      filter(month >= as_date("1964-01-01")), 
+                    aes(x = month, y = NO3_vwm)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Month",
+    y = "Stream NO3",
+    title = "Volume-Weighted Monthly Mean Nitrate Over Time (W6)") +
+  theme_minimal()
+
+NO3_year <- ggplot(W6_streamvwm_year %>%
+                      filter(year >= as_date("1964-01-01")), 
+                   aes(x = year, y = NO3_vwm)) +
+  geom_point(size = 2) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Stream NO3",
+    title = "Volume-Weighted Yearly Mean Nitrate Over Time (W6)") +
+  theme_minimal()
+
+# Note, filtering time frame since there is no data for SC
+# prior to 1964
+SO4_month <- ggplot(W6_streamvwm_month %>%
+                      filter(month >= as_date("1964-01-01")), 
+                    aes(x = month, y = SO4_vwm)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Month",
+    y = "Stream SO4",
+    title = "Volume-Weighted Monthly Mean Sulfate Over Time (W6)") +
+  theme_minimal()
+
+SO4_year <- ggplot(W6_streamvwm_year %>%
+                      filter(year >= as_date("1964-01-01")), 
+                   aes(x = year, y = SO4_vwm)) +
+  geom_point(size = 2) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Stream SO4",
+    title = "Volume-Weighted Yearly Mean Sulfate Over Time (W6)") +
+  theme_minimal()
+
+Ca_month <- ggplot(W6_streamvwm_month, aes(x = month, y = Ca_vwm)) +
+  geom_point(size = 1) +
+  geom_line() +
+  labs(
+    x = "Month",
+    y = "Stream Ca",
+    title = "Volume-Weighted Monthly Mean Calcium Over Time (W6)") +
+  theme_minimal()
+
+Ca_year <- ggplot(W6_streamvwm_year, aes(x = year, y = Ca_vwm)) +
+  geom_point(size = 2) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Stream Ca",
+    title = "Volume-Weighted Yearly Mean Calcium Over Time (W6)") +
   theme_minimal()
 
 ```
 
 #Save all your plots to the graph folder
 ```{r}
-plots <- list(pH_month, pH_year) #change to your graph names
-names <- c("stream_pH_month", "stream_pH_year") #change to names
+plots <- list(pH_month, pH_year,
+              DOC_month, DOC_year,
+              DIC_month, DIC_year,
+              SC_month, SC_year,
+              NO3_month, NO3_year,
+              SO4_month, SO4_year,
+              Ca_month, Ca_year) #change to your graph names
+names <- c("stream_pH_month", "stream_pH_year",
+           "stream_DOC_month", "stream_DOC_year",
+           "stream_DIC_month", "stream_DIC_year",
+           "stream_SpC_month", "stream_SpC_year",
+           "stream_NO3_month", "stream_NO3_year",
+           "stream_SO4_month", "stream_SO4_year",
+           "stream_Ca_month", "stream_Ca_year") #change to names
 
 for (i in seq_along(plots)) {
   ggsave(
