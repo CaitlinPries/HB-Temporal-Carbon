@@ -1,6 +1,6 @@
 ---
-title: "HB Temporal C Synthesis: Aboveground Biomass"
-author: "Caitlin Hicks Pries, Emerson Conrad-Rooney"
+title: "HB Temporal C Synthesis: Aboveground Biomass for Watershed 1, 5, and 6"
+author: "Emerson Conrad-Rooney, Caitlin Hicks Pries"
 date: "`r Sys.Date()`"
 output: html_document
 ---
