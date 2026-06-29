@@ -51,3 +51,4 @@ rsconnect/
 
 # remove DS_store
 .DS_Store
+.Rproj.user
