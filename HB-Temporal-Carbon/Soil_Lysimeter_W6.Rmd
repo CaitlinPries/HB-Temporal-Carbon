@@ -1,5 +1,5 @@
 ---
-title: "HB Temporal Carbon - W1 Lysimeter Data"
+title: "HB Temporal Carbon - W6 Lysimeter Data"
 author: "Angela Possinger"
 date: "`r Sys.Date()`"
 output: html_document
@@ -20,8 +20,8 @@ knitr::opts_knit$set(root.dir = here())
 
 ```
 
-#TITLE FROM EDI: Chemistry of freely-draining soil solutions at the Hubbard Brook Experimental Forest, Watershed 1, 1996 - present
-DESCRIBE DATA: W1 lysimeter soil solution chemistry data, approximately monthly since 1984 
+#TITLE FROM EDI: Chemistry of freely-draining soil solutions at the Hubbard Brook Experimental Forest, Watershed 6, 1984 - present
+DESCRIBE DATA: W6 lysimeter soil solution chemistry data, approximately monthly since 1984 
 Focus variables: pH, ANC, Al, Si, NH4, NO3, DOC, DIC, TN
 
 #Dealing with NA codes
@@ -39,7 +39,7 @@ Note where you need to add in NA codes that you described above for your dataset
 ```{r access data from EDI}
 options(HTTPUserAgent="EDI_CodeGen")
 
-inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/138/14/429a88e19df84e6b1ade16a1ab434f62" #paste url here
+inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/62/21/c03398425ac8e21a12750cc2655202e4" #paste url here
 infile1 <- tempfile()
 try(download.file(inUrl1,infile1,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
 if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
@@ -98,105 +98,84 @@ detectionLimits_Driscoll <- list(
   pH = NA
 )
 
-W1_lysimconc <- dt1 %>%
+W6_lysimconc <- dt1 %>%
   mutate(Date = as.Date(Date)) %>% #convert to Date object
   mutate(across(  #replace -777.77 (values below the detection limit) with half the limit
     .cols = names(detectionLimits_Driscoll),
     .fns = ~ ifelse(.x == -777.77, detectionLimits_Driscoll[[cur_column()]], .x)))
 
 #take a look to make sure the data is behaving how you want it to
-summary(W1_lysimconc) 
+summary(W6_lysimconc) 
 
 #Extreme low values: pH, ANC, Al, NH4, NO3, DOC, DIC, TN
 #pH
-unique(W1_lysimconc$pH[which(W1_lysimconc$pH < 0)]) 
+unique(W6_lysimconc$pH[which(W6_lysimconc$pH < 0)]) 
 #They are:
-#[1] -1000
-#take a closer look
-#View(W1_lysimconc[which(W1_lysimconc$pH < 0),])
-#These rows are also missing data for all other parameters
+#NA
 
 #ANC
 #Distribution of ANC 
-hist(W1_lysimconc$ANC)
-unique(W1_lysimconc$ANC[which(W1_lysimconc$ANC > 400)]) 
+hist(W6_lysimconc$ANC)
+unique(W6_lysimconc$ANC[which(W6_lysimconc$ANC > 400)]) 
 #They are:
-#[1] 453.10 783.90 415.00 445.94 509.41 428.06 414.95
-#take a closer look
-#View(W1_lysimconc[which(W1_lysimconc$ANC > 400),])
-#These values are consistent with relatively high pH - do not remove
+#NA
 
 #Alt
-unique(W1_lysimconc$Alt[which(W1_lysimconc$Alt < -100)]) 
-#They are:
-#[1] -336.4
-#take a closer look
-#View(W1_lysimconc[which(W1_lysimconc$Alt < -100),])
-#Base cations also erroneously low in this sample
+unique(W6_lysimconc$Alt[which(W6_lysimconc$Alt < -100)]) 
+#NA
 
 #Altm
-unique(W1_lysimconc$Altm[which(W1_lysimconc$Altm < -100)]) 
+unique(W6_lysimconc$Altm[which(W6_lysimconc$Altm < -100)]) 
 #They are:
-#  [1] -774.23 -772.26 -776.22 -775.97 -775.71 -768.30 -773.34 -775.31
-#  [9] -775.69 -775.27 -776.54 -774.32 -772.12 -772.00 -766.24 -769.81
-# [17] -773.13 -772.53 -774.03 -772.16 -770.01 -774.98 -768.14 -770.10
-# [25] -768.52 -764.14 -770.19 -773.10 -771.73 -771.55 -775.17 -774.36
-# [33] -768.90 -770.14 -772.73 -771.66 -776.26 -772.50 -772.94 -776.41
-# [41] -774.44 -775.38 -766.66 -770.46 -771.70 -770.45 -775.90 -776.01
-# [49] -771.57 -776.38 -776.28 -767.80 -774.21 -772.17 -775.60 -771.23
-# [57] -774.11 -776.19 -772.74 -776.32 -775.09 -774.81 -773.40 -768.73
-# [65] -772.88 -774.27 -385.06
+#-1999.98  -757.67 -1777.76  -773.38  -874.71
 #take a closer look
-#View(W1_lysimconc[which(W1_lysimconc$Altm < -100),])
-#All low only for Altm - other columns kept 
+View(W6_lysimconc[which(W6_lysimconc$Altm < -100),])
+#All other values NA - set Altm to NA
 
 #Alom
-unique(W1_lysimconc$Alom[which(W1_lysimconc$Alom < -10)]) 
+unique(W6_lysimconc$Alom[which(W6_lysimconc$Alom < -10)]) 
 #They are:
-#None
+#NA
 
 #NH4
-unique(W1_lysimconc$NH4[which(W1_lysimconc$NH4 < -100)]) 
+unique(W6_lysimconc$NH4[which(W6_lysimconc$NH4 < -100)]) 
 #They are:
-#None
+#NA
 
 #NO3
-unique(W1_lysimconc$NO3[which(W1_lysimconc$NO3 < -100)]) 
+unique(W6_lysimconc$NO3[which(W6_lysimconc$NO3 < -100)]) 
 #They are:
-#None
+#NA
 
 #DOC
-unique(W1_lysimconc$DOC[which(W1_lysimconc$DOC < -100)]) 
+unique(W6_lysimconc$DOC[which(W6_lysimconc$DOC < -100)]) 
 #They are:
-#None
+#NA
 
 #DIC
-unique(W1_lysimconc$DIC[which(W1_lysimconc$DIC < -100)]) 
+unique(W6_lysimconc$DIC[which(W6_lysimconc$DIC < -100)]) 
 #They are:
-#None
+#NA
 
 #TN
-unique(W1_lysimconc$TN[which(W1_lysimconc$TN < -10)]) 
+unique(W6_lysimconc$TN[which(W6_lysimconc$TN < -10)]) 
 #They are:
-#57.65
-#take a closer look
-#View(W1_lysimconc[which(W1_lysimconc$TN < -10),])
-#Low only for TN - other columns kept 
+#NA
 
 #Change the pH, Al, etc. with values defined above to NA and then remove rows from the df with no chemistry data for any analyte:
-W1_lysimconc <- W1_lysimconc %>%
-  mutate(pH = ifelse(pH < 0, NA, pH)) %>%
-  mutate(Alt = ifelse(Alt < -100, NA, Alt)) %>%
+W6_lysimconc <- W6_lysimconc %>%
+  #mutate(pH = ifelse(pH < 0, NA, pH)) %>%
+  #mutate(Alt = ifelse(Alt < -100, NA, Alt)) %>%
   mutate(Altm = ifelse(Altm < -100, NA, Altm)) %>%
-  mutate(TN = ifelse(TN < -10, NA, TN)) %>%
+  #mutate(TN = ifelse(TN < -10, NA, TN)) %>%
   filter(!if_all(pH:TN, is.na))
 
 #Convert the character columns to factors (needed for month and year function below)
-W1_lysimconc <- W1_lysimconc %>%
+W6_lysimconc <- W6_lysimconc %>%
   mutate(across(c(WS, Site, Horizon), as.factor))
 
 #Add column for "organic" and "mineral" to split horizon types
-W1_lysimconc <- W1_lysimconc %>%
+W6_lysimconc <- W6_lysimconc %>%
   mutate(Horizon_type = ifelse(
     Horizon %in% c("Oe", "Oae", "Oa"),
     "Organic",
@@ -220,17 +199,35 @@ For now, keep it to its native time frame
 DESCRIBE timestep(s) of your data here: Monthly
 In the example below we are averaging over sites for each month
 ```{r}
-W1_lysimconc_month <- W1_lysimconc %>%
+W6_lysimconc_month <- W6_lysimconc %>%
   mutate(month = floor_date(Date, "month")) %>% #by month, converts all dates to 1st of month
   group_by(month, WS, Horizon, Horizon_type) %>%
-  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
-            .groups = "drop")
+  summarise(
+    across(
+      where(is.numeric),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
 
-W1_lysimconc_year <- W1_lysimconc %>%
+W6_lysimconc_year <- W6_lysimconc %>%
   mutate(year = floor_date(Date, "year")) %>% #by year, converts all dates to 1st of year
   group_by(year, WS, Horizon, Horizon_type) %>%
-  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
-            .groups = "drop")
+  summarise(
+    across(
+      where(is.numeric),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
 
 #save these?? Right now no, and there is no data folder in the project
 #write.csv(data_name, here("data", "data_name.csv"))
@@ -238,503 +235,308 @@ W1_lysimconc_year <- W1_lysimconc %>%
 
 #Graph your analytes by month and year in ggplot
 ```{r}
+#Ordering for horizons
+W6_lysimconc_month$Horizon <- factor(W6_lysimconc_month$Horizon, levels=c("Oa","Bh","Bs"))
+W6_lysimconc_year$Horizon <- factor(W6_lysimconc_year$Horizon, levels=c("Oa","Bh","Bs"))
+
 #pH#### 
 #Month
-#Organic
-pH_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"), aes(x = month, y = pH)) +
+pH_month <- ggplot(W6_lysimconc_month, aes(x = month, y = pH_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=pH_mean-pH_se, ymax=pH_mean+pH_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
     y = "Soil solution pH",
-    title = "Organic Horizon Monthly Mean Soil Solution pH Over Time") +
-  theme_minimal()
-
-#Mineral
-pH_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"), aes(x = month, y = pH)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution pH",
-    title = "Mineral Horizon Monthly Mean Soil Solution pH Over Time") +
+    title = "W6 Monthly Mean Soil Solution pH Over Time") +
   theme_minimal()
 
 #Year 
-#Organic
-pH_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"), aes(x = year, y = pH)) +
+pH_year <- ggplot(W6_lysimconc_year, aes(x = year, y = pH_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=pH_mean-pH_se, ymax=pH_mean+pH_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
     y = "Soil solution pH",
-    title = "Organic Horizon Yearly Mean Soil Solution pH Over Time") +
-  theme_minimal()
-
-#Mineral
-pH_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"), aes(x = year, y = pH)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution pH",
-    title = "Mineral Horizon Yearly Mean Soil Solution pH Over Time") +
+    title = "W6 Mean Soil Solution pH Over Time") +
   theme_minimal()
 
 #ANC#### 
 #Month
-#Organic
-ANC_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"), aes(x = month, y = ANC)) +
+ANC_month <- ggplot(W6_lysimconc_month,
+aes(x = month, y = ANC_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=ANC_mean-ANC_se, ymax=ANC_mean+ANC_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution ANC",
-    title = "Organic Horizon Monthly Mean Soil Solution ANC Over Time") +
-  theme_minimal()
-
-#Mineral
-ANC_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"), aes(x = month, y = ANC)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution ANC",
-    title = "Mineral Horizon Monthly Mean Soil Solution ANC Over Time") +
+    y = "Soil solution ANC (microEquivalentPerLiter)",
+    title = "W6 Monthly Mean Soil Solution ANC Over Time") +
   theme_minimal()
 
 #Year 
-#Organic
-ANC_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"), aes(x = year, y = ANC)) +
+ANC_year <- ggplot(W6_lysimconc_year,
+aes(x = year, y = ANC_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=ANC_mean-ANC_se, ymax=ANC_mean+ANC_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution ANC",
-    title = "Organic Horizon Yearly Mean Soil Solution ANC Over Time") +
-  theme_minimal()
-
-#Mineral
-ANC_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"), aes(x = year, y = ANC)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution ANC",
-    title = "Mineral Horizon Yearly Mean Soil Solution ANC Over Time") +
+    y = "Soil solution ANC (microEquivalentPerLiter)",
+    title = "W6 Yearly Mean Soil Solution ANC Over Time") +
   theme_minimal()
 
 #Alt#### 
 #Month
-#Organic
-Alt_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"), aes(x = month, y = Alt)) +
+Alt_month <- ggplot(W6_lysimconc_month, 
+aes(x = month, y = Alt_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=Alt_mean-Alt_se, ymax=Alt_mean+Alt_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Alt",
-    title = "Organic Horizon Monthly Mean Soil Solution Alt Over Time") +
-  theme_minimal()
-
-#Mineral
-Alt_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"), aes(x = month, y = Alt)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution Alt",
-    title = "Mineral Horizon Monthly Mean Soil Solution Alt Over Time") +
+    y = "Soil solution Alt (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution Total Al Over Time") +
   theme_minimal()
 
 #Year 
-#Organic
-Alt_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"), aes(x = year, y = Alt)) +
+Alt_year <- ggplot(W6_lysimconc_year, 
+aes(x = year, y = Alt_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=Alt_mean-Alt_se, ymax=Alt_mean+Alt_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution Alt",
-    title = "Organic Horizon Yearly Mean Soil Solution Alt Over Time") +
-  theme_minimal()
-
-#Mineral
-Alt_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"), aes(x = year, y = Alt)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution Alt",
-    title = "Mineral Horizon Yearly Mean Soil Solution Alt Over Time") +
+    y = "Soil solution Alt (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution Total Al Over Time") +
   theme_minimal()
 
 #Altm#### 
 #Month
-#Organic
-Altm_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"), aes(x = month, y = Altm)) +
+Altm_month <- ggplot(W6_lysimconc_month, 
+aes(x = month, y = Altm_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=Altm_mean-Altm_se, ymax=Altm_mean+Altm_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Altm",
-    title = "Organic Horizon Monthly Mean Soil Solution Altm Over Time") +
-  theme_minimal()
-
-#Mineral
-Altm_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"), aes(x = month, y = Altm)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution Altm",
-    title = "Mineral Horizon Monthly Mean Soil Solution Altm Over Time") +
+    y = "Soil solution Alt (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution Total Monomeric Al Over Time") +
   theme_minimal()
 
 #Year 
-#Organic
-Altm_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"), aes(x = year, y = Altm)) +
+Altm_year <- ggplot(W6_lysimconc_year,
+aes(x = year, y = Altm_mean)) +
   geom_point(size = 1) +
   geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Year",
-    y = "Soil solution Altm",
-    title = "Organic Horizon Yearly Mean Soil Solution Altm Over Time") +
-  theme_minimal()
-
-#Mineral
-Altm_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"), aes(x = year, y = Altm)) +
-  geom_point(size = 1) +
-  geom_line() +
+  geom_errorbar(aes(ymin=Altm_mean-Altm_se, ymax=Altm_mean+Altm_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Altm",
-    title = "Mineral Horizon Yearly Mean Soil Solution Altm Over Time") +
+    y = "Soil solution Altm (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution Total Monomeric Al Over Time") +
   theme_minimal()
 
 #Alom#### 
 #Month
-#Organic
-Alom_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"), aes(x = month, y = Alom)) +
+Alom_month <- ggplot(W6_lysimconc_month, 
+aes(x = month, y = Alom_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=Alom_mean-Alom_se, ymax=Alom_mean+Alom_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Alom",
-    title = "Organic Horizon Monthly Mean Soil Solution Alom Over Time") +
-  theme_minimal()
-
-#Mineral
-Alom_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"), aes(x = month, y = Alom)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution Alom",
-    title = "Mineral Horizon Monthly Mean Soil Solution Alom Over Time") +
+    y = "Soil solution Alom (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution Organic Monomeric Al Over Time") +
   theme_minimal()
 
 #Year 
-#Organic
-Alom_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"), aes(x = year, y = Alom)) +
+Alom_year <- ggplot(W6_lysimconc_year, 
+aes(x = year, y = Alom_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=Alom_mean-Alom_se, ymax=Alom_mean+Alom_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution Alom",
-    title = "Organic Horizon Yearly Mean Soil Solution Alom Over Time") +
-  theme_minimal()
-
-#Mineral
-Alom_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"), aes(x = year, y = Alom)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution Alom",
-    title = "Mineral Horizon Yearly Mean Soil Solution Alom Over Time") +
+    y = "Soil solution Alom (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution Organic Monomeric Al Over Time") +
   theme_minimal()
 
 #NH4#### 
 #Month
-#Organic
-NH4_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"), aes(x = month, y = NH4)) +
+NH4_month <- ggplot(W6_lysimconc_month,
+aes(x = month, y = NH4_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=NH4_mean-NH4_se, ymax=NH4_mean+NH4_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution NH4",
-    title = "Organic Horizon Monthly Mean Soil Solution NH4 Over Time") +
-  theme_minimal()
-
-#Mineral
-NH4_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"), aes(x = month, y = NH4)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution NH4",
-    title = "Mineral Horizon Monthly Mean Soil Solution NH4 Over Time") +
+    y = "Soil solution NH4+ (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution NH4+ Over Time") +
   theme_minimal()
 
 #Year 
-#Organic
-NH4_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"), aes(x = year, y = NH4)) +
+NH4_year <- ggplot(W6_lysimconc_year, 
+  aes(x = year, y = NH4_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=NH4_mean-NH4_se, ymax=NH4_mean+NH4_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution NH4",
-    title = "Organic Horizon Yearly Mean Soil Solution NH4 Over Time") +
-  theme_minimal()
-
-#Mineral
-NH4_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"), aes(x = year, y = NH4)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution NH4",
-    title = "Mineral Horizon Yearly Mean Soil Solution NH4 Over Time") +
+    y = "Soil solution NH4+ (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution NH4+ Over Time") +
   theme_minimal()
 
 #NO3#### 
 #Month
-#Organic
-NO3_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"), aes(x = month, y = NO3)) +
+NO3_month <- ggplot(W6_lysimconc_month, 
+  aes(x = month, y = NO3_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=NO3_mean-NO3_se, ymax=NO3_mean+NO3_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution NO3",
-    title = "Organic Horizon Monthly Mean Soil Solution NO3 Over Time") +
-  theme_minimal()
-
-#Mineral
-NO3_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"), aes(x = month, y = NO3)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution NO3",
-    title = "Mineral Horizon Monthly Mean Soil Solution NO3 Over Time") +
+    y = "Soil solution NO3- (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution NO3- Over Time") +
   theme_minimal()
 
 #Year 
-#Organic
-NO3_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"), aes(x = year, y = NO3)) +
+NO3_year <- ggplot(W6_lysimconc_year,
+                           aes(x = year, y = NO3_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=NO3_mean-NO3_se, ymax=NO3_mean+NO3_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution NO3",
-    title = "Organic Horizon Yearly Mean Soil Solution NO3 Over Time") +
-  theme_minimal()
-
-#Mineral
-NO3_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"), aes(x = year, y = NO3)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution NO3",
-    title = "Mineral Horizon Yearly Mean Soil Solution NO3 Over Time") +
+    y = "Soil solution NO3- (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution NO3- Over Time") +
   theme_minimal()
 
 #DOC#### 
 #Month
-#Organic
-DOC_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"), aes(x = month, y = DOC)) +
+DOC_month <- ggplot(W6_lysimconc_month, 
+                    aes(x = month, y = DOC_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=DOC_mean-DOC_se, ymax=DOC_mean+DOC_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution DOC",
-    title = "Organic Horizon Monthly Mean Soil Solution DOC Over Time") +
-  theme_minimal()
-
-#Mineral
-DOC_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"), aes(x = month, y = DOC)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution DOC",
-    title = "Mineral Horizon Monthly Mean Soil Solution DOC Over Time") +
+    y = "Soil solution DOC (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution DOC Over Time") +
   theme_minimal()
 
 #Year 
-#Organic
-DOC_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"), aes(x = year, y = DOC)) +
+DOC_year <- ggplot(W6_lysimconc_year,
+aes(x = year, y = DOC_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=DOC_mean-DOC_se, ymax=DOC_mean+DOC_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution DOC",
-    title = "Organic Horizon Yearly Mean Soil Solution DOC Over Time") +
-  theme_minimal()
-
-#Mineral
-DOC_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"), aes(x = year, y = DOC)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution DOC",
-    title = "Mineral Horizon Yearly Mean Soil Solution DOC Over Time") +
+    y = "Soil solution DOC (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution DOC Over Time") +
   theme_minimal()
 
 #DIC#### 
 #Month
-#Organic
-DIC_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"), aes(x = month, y = DIC)) +
+DIC_month <- ggplot(W6_lysimconc_month, 
+aes(x = month, y = DIC_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=DIC_mean-DIC_se, ymax=DIC_mean+DIC_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution DIC",
-    title = "Organic Horizon Monthly Mean Soil Solution DIC Over Time") +
-  theme_minimal()
-
-#Mineral
-DIC_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"), aes(x = month, y = DIC)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution DIC",
-    title = "Mineral Horizon Monthly Mean Soil Solution DIC Over Time") +
+    y = "Soil solution DIC (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution DIC Over Time") +
   theme_minimal()
 
 #Year 
-#Organic
-DIC_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"), aes(x = year, y = DIC)) +
+DIC_year <- ggplot(W6_lysimconc_year, 
+aes(x = year, y = DIC_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=DIC_mean-DIC_se, ymax=DIC_mean+DIC_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution DIC",
-    title = "Organic Horizon Yearly Mean Soil Solution DIC Over Time") +
-  theme_minimal()
-
-#Mineral
-DIC_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"), aes(x = year, y = DIC)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution DIC",
-    title = "Mineral Horizon Yearly Mean Soil Solution DIC Over Time") +
+    y = "Soil solution DIC (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution DIC Over Time") +
   theme_minimal()
 
 #TN#### 
 #Month
-#Organic
-TN_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"), aes(x = month, y = TN)) +
+TN_month <- ggplot(W6_lysimconc_month, 
+aes(x = month, y = TN_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=TN_mean-TN_se, ymax=TN_mean+TN_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution TN",
-    title = "Organic Horizon Monthly Mean Soil Solution TN Over Time") +
-  theme_minimal()
-
-#Mineral
-TN_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"), aes(x = month, y = TN)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution TN",
-    title = "Mineral Horizon Monthly Mean Soil Solution TN Over Time") +
+    y = "Soil solution TN (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution TN Over Time") +
   theme_minimal()
 
 #Year 
-#Organic
-TN_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"), aes(x = year, y = TN)) +
+TN_year <- ggplot(W6_lysimconc_year,
+aes(x = year, y = TN_mean)) +
   geom_point(size = 1) +
   geom_line() +
+  geom_errorbar(aes(ymin=TN_mean-TN_se, ymax=TN_mean+TN_se), width=0.2) + 
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution TN",
-    title = "Organic Horizon Yearly Mean Soil Solution TN Over Time") +
-  theme_minimal()
-
-#Mineral
-TN_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"), aes(x = year, y = TN)) +
-  geom_point(size = 1) +
-  geom_line() +
-  facet_grid(Horizon~.) + 
-  labs(
-    x = "Month",
-    y = "Soil solution TN",
-    title = "Mineral Horizon Yearly Mean Soil Solution TN Over Time") +
+    y = "Soil solution TN (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution TN Over Time") +
   theme_minimal()
 
 ```
 
 #Save all your plots to the graph folder
 ```{r}
-plots <- list(pH_month_organic, pH_month_mineral, pH_year_organic, pH_year_mineral, ANC_month_organic, ANC_month_mineral, ANC_year_organic, ANC_year_mineral, Alt_month_organic, Alt_month_mineral, Alt_year_organic, Alt_year_mineral, Altm_month_organic, Altm_month_mineral, Altm_year_organic, Altm_year_mineral, Alom_month_organic, Alom_month_mineral, Alom_year_organic, Alom_year_mineral, NH4_month_organic, NH4_month_mineral, NH4_year_organic, NH4_year_mineral, NO3_month_organic, NO3_month_mineral, NO3_year_organic, NO3_year_mineral, DOC_month_organic, DOC_month_mineral, DOC_year_organic, DOC_year_mineral, DIC_month_organic, DIC_month_mineral, DIC_year_organic, DIC_year_mineral, TN_month_organic, TN_month_mineral, TN_year_organic, TN_year_mineral ) #change to your graph names
+plots <- list(
+  pH_month, pH_year,
+  ANC_month, ANC_year,
+  Alt_month, Alt_year,
+  Altm_month, Altm_year,
+  Alom_month, Alom_year,
+  NH4_month, NH4_year,
+  NO3_month, NO3_year,
+  DOC_month, DOC_year,
+  DIC_month, DIC_year,
+  TN_month, TN_year
+)
 
-names <- c( "pH_month_organic", "pH_month_mineral",
-  "pH_year_organic", "pH_year_mineral",
-  "ANC_month_organic", "ANC_month_mineral",
-  "ANC_year_organic", "ANC_year_mineral",
-  "Alt_month_organic", "Alt_month_mineral",
-  "Alt_year_organic", "Alt_year_mineral",
-  "Altm_month_organic", "Altm_month_mineral",
-  "Altm_year_organic", "Altm_year_mineral",
-  "Alom_month_organic", "Alom_month_mineral",
-  "Alom_year_organic", "Alom_year_mineral",
-  "NH4_month_organic", "NH4_month_mineral",
-  "NH4_year_organic", "NH4_year_mineral",
-  "NO3_month_organic", "NO3_month_mineral",
-  "NO3_year_organic", "NO3_year_mineral",
-  "DOC_month_organic", "DOC_month_mineral",
-  "DOC_year_organic", "DOC_year_mineral",
-  "DIC_month_organic", "DIC_month_mineral",
-  "DIC_year_organic", "DIC_year_mineral",
-  "TN_month_organic", "TN_month_mineral",
-  "TN_year_organic", "TN_year_mineral"
-) #change to names
+#change to your graph names
+names <- c(
+  "W6_pH_month", "W6_pH_year",
+  "W6_ANC_month", "W6_ANC_year",
+  "W6_Alt_month","W6_Alt_year",
+  "W6_Altm_month","W6_Altm_year",
+  "W6_Alom_month","W6_Alom_year",
+  "W6_NH4_month","W6_NH4_year",
+  "W6_NO3_month","W6_NO3_year",
+  "W6_DOC_month","W6_DOC_year",
+  "W6_DIC_month","W6_DIC_year",
+  "W6_TN_month","W6_TN_year"
+)
 
 for (i in seq_along(plots)) {
   ggsave(

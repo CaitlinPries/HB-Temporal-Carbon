@@ -320,7 +320,7 @@ ANC_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution ANC",
+    y = "Soil solution ANC (microEquivalentPerLiter)",
     title = "W1 Organic Horizon Monthly Mean Soil Solution ANC Over Time") +
   theme_minimal()
 
@@ -332,7 +332,7 @@ ANC_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution ANC",
+    y = "Soil solution ANC (microEquivalentPerLiter)",
     title = "W1 Mineral Horizon Monthly Mean Soil Solution ANC Over Time") +
   theme_minimal()
 
@@ -345,7 +345,7 @@ ANC_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"),
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution ANC",
+    y = "Soil solution ANC (microEquivalentPerLiter)",
     title = "W1 Organic Horizon Yearly Mean Soil Solution ANC Over Time") +
   theme_minimal()
 
@@ -357,7 +357,7 @@ ANC_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"),
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution ANC",
+    y = "Soil solution ANC (microEquivalentPerLiter)",
     title = "W1 Mineral Horizon Yearly Mean Soil Solution ANC Over Time") +
   theme_minimal()
 
@@ -371,7 +371,7 @@ Alt_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Alt",
+    y = "Soil solution Alt (micromolePerLiter)",
     title = "W1 Organic Horizon Monthly Mean Soil Solution Total Al Over Time") +
   theme_minimal()
 
@@ -383,7 +383,7 @@ Alt_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Alt",
+    y = "Soil solution Alt (micromolePerLiter)",
     title = "W1 Mineral Horizon Monthly Mean Soil Solution Total Al Over Time") +
   theme_minimal()
 
@@ -396,7 +396,7 @@ Alt_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"),
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution Alt",
+    y = "Soil solution Alt (micromolePerLiter)",
     title = "W1 Organic Horizon Yearly Mean Soil Solution Total Al Over Time") +
   theme_minimal()
 
@@ -408,7 +408,7 @@ Alt_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"),
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Alt",
+    y = "Soil solution Alt (micromolePerLiter)",
     title = "Mineral Horizon Yearly Mean Soil Solution Total Al Over Time") +
   theme_minimal()
 
@@ -422,7 +422,7 @@ Altm_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Altm",
+    y = "Soil solution Alt (micromolePerLiter)",
     title = "W1 Organic Horizon Monthly Mean Soil Solution Total Monomeric Al Over Time") +
   theme_minimal()
 
@@ -434,7 +434,7 @@ Altm_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Altm",
+    y = "Soil solution Altm (micromolePerLiter)",
     title = "W1 Mineral Horizon Monthly Mean Soil Solution Total Monomeric Al Over Time") +
   theme_minimal()
 
@@ -447,7 +447,7 @@ Altm_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic")
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution Altm",
+    y = "Soil solution Altm (micromolePerLiter)",
     title = "W1 Organic Horizon Yearly Mean Soil Solution Total Monomeric Al Over Time") +
   theme_minimal()
 
@@ -459,7 +459,7 @@ Altm_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral")
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Altm",
+    y = "Soil solution Altm (micromolePerLiter)",
     title = "W1 Mineral Horizon Yearly Mean Soil Solution Total Monomeric Al Over Time") +
   theme_minimal()
 
@@ -473,7 +473,7 @@ Alom_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Alom",
+    y = "Soil solution Alom (micromolePerLiter)",
     title = "W1 Organic Horizon Monthly Mean Soil Solution Organic Monomeric Al Over Time") +
   theme_minimal()
 
@@ -485,7 +485,7 @@ Alom_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Alom",
+    y = "Soil solution Alom (micromolePerLiter)",
     title = "W1 Mineral Horizon Monthly Mean Soil Solution Organic Monomeric Al Over Time") +
   theme_minimal()
 
@@ -498,7 +498,7 @@ Alom_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic")
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution Alom",
+    y = "Soil solution Alom (micromolePerLiter)",
     title = "W1 Organic Horizon Yearly Mean Soil Solution Organic Monomeric Al Over Time") +
   theme_minimal()
 
@@ -510,7 +510,7 @@ Alom_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral")
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution Alom",
+    y = "Soil solution Alom (micromolePerLiter)",
     title = "W1 Mineral Horizon Yearly Mean Soil Solution Organic Monomeric Al Over Time") +
   theme_minimal()
 
@@ -524,8 +524,8 @@ NH4_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution NH4",
-    title = "W1 Organic Horizon Monthly Mean Soil Solution NH4 Over Time") +
+    y = "Soil solution NH4+ (micromolePerLiter)",
+    title = "W1 Organic Horizon Monthly Mean Soil Solution NH4+ Over Time") +
   theme_minimal()
 
 #Mineral
@@ -536,8 +536,8 @@ NH4_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution NH4",
-    title = "W1 Mineral Horizon Monthly Mean Soil Solution NH4 Over Time") +
+    y = "Soil solution NH4+ (micromolePerLiter)",
+    title = "W1 Mineral Horizon Monthly Mean Soil Solution NH4+ Over Time") +
   theme_minimal()
 
 #Year 
@@ -549,8 +549,8 @@ NH4_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"),
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution NH4",
-    title = "W1 Organic Horizon Yearly Mean Soil Solution NH4 Over Time") +
+    y = "Soil solution NH4+ (micromolePerLiter)",
+    title = "W1 Organic Horizon Yearly Mean Soil Solution NH4+ Over Time") +
   theme_minimal()
 
 #Mineral
@@ -561,8 +561,8 @@ NH4_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"),
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution NH4",
-    title = "W1 Mineral Horizon Yearly Mean Soil Solution NH4 Over Time") +
+    y = "Soil solution NH4+ (micromolePerLiter)",
+    title = "W1 Mineral Horizon Yearly Mean Soil Solution NH4+ Over Time") +
   theme_minimal()
 
 #NO3#### 
@@ -575,8 +575,8 @@ NO3_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution NO3",
-    title = "W1 Organic Horizon Monthly Mean Soil Solution NO3 Over Time") +
+    y = "Soil solution NO3- (micromolePerLiter)",
+    title = "W1 Organic Horizon Monthly Mean Soil Solution NO3- Over Time") +
   theme_minimal()
 
 #Mineral
@@ -587,8 +587,8 @@ NO3_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution NO3",
-    title = "W1 Mineral Horizon Monthly Mean Soil Solution NO3 Over Time") +
+    y = "Soil solution NO3- (micromolePerLiter)",
+    title = "W1 Mineral Horizon Monthly Mean Soil Solution NO3- Over Time") +
   theme_minimal()
 
 #Year 
@@ -600,8 +600,8 @@ NO3_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"),
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution NO3",
-    title = "W1 Organic Horizon Yearly Mean Soil Solution NO3 Over Time") +
+    y = "Soil solution NO3- (micromolePerLiter)",
+    title = "W1 Organic Horizon Yearly Mean Soil Solution NO3- Over Time") +
   theme_minimal()
 
 #Mineral
@@ -612,8 +612,8 @@ NO3_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"),
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution NO3",
-    title = "W1 Mineral Horizon Yearly Mean Soil Solution NO3 Over Time") +
+    y = "Soil solution NO3- (micromolePerLiter)",
+    title = "W1 Mineral Horizon Yearly Mean Soil Solution NO3- Over Time") +
   theme_minimal()
 
 #DOC#### 
@@ -626,7 +626,7 @@ DOC_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution DOC",
+    y = "Soil solution DOC (micromolePerLiter)",
     title = "W1 Organic Horizon Monthly Mean Soil Solution DOC Over Time") +
   theme_minimal()
 
@@ -638,7 +638,7 @@ DOC_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution DOC",
+    y = "Soil solution DOC (micromolePerLiter)",
     title = "W1 Mineral Horizon Monthly Mean Soil Solution DOC Over Time") +
   theme_minimal()
 
@@ -651,7 +651,7 @@ DOC_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"),
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution DOC",
+    y = "Soil solution DOC (micromolePerLiter)",
     title = "W1 Organic Horizon Yearly Mean Soil Solution DOC Over Time") +
   theme_minimal()
 
@@ -663,7 +663,7 @@ DOC_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"),
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution DOC",
+    y = "Soil solution DOC (micromolePerLiter)",
     title = "W1 Mineral Horizon Yearly Mean Soil Solution DOC Over Time") +
   theme_minimal()
 
@@ -677,7 +677,7 @@ DIC_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic"
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution DIC",
+    y = "Soil solution DIC (micromolePerLiter)",
     title = "W1 Organic Horizon Monthly Mean Soil Solution DIC Over Time") +
   theme_minimal()
 
@@ -689,7 +689,7 @@ DIC_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral"
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution DIC",
+    y = "Soil solution DIC (micromolePerLiter)",
     title = "W1 Mineral Horizon Monthly Mean Soil Solution DIC Over Time") +
   theme_minimal()
 
@@ -702,7 +702,7 @@ DIC_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"),
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution DIC",
+    y = "Soil solution DIC (micromolePerLiter)",
     title = "W1 Organic Horizon Yearly Mean Soil Solution DIC Over Time") +
   theme_minimal()
 
@@ -714,7 +714,7 @@ DIC_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"),
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution DIC",
+    y = "Soil solution DIC (micromolePerLiter)",
     title = "W1 Mineral Horizon Yearly Mean Soil Solution DIC Over Time") +
   theme_minimal()
 
@@ -728,7 +728,7 @@ TN_month_organic <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Organic")
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution TN",
+    y = "Soil solution TN (micromolePerLiter)",
     title = "W1 Organic Horizon Monthly Mean Soil Solution TN Over Time") +
   theme_minimal()
 
@@ -740,7 +740,7 @@ TN_month_mineral <- ggplot(subset(W1_lysimconc_month, Horizon_type == "Mineral")
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution TN",
+    y = "Soil solution TN (micromolePerLiter)",
     title = "W1 Mineral Horizon Monthly Mean Soil Solution TN Over Time") +
   theme_minimal()
 
@@ -753,7 +753,7 @@ TN_year_organic <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Organic"), 
   facet_grid(Horizon~.) + 
   labs(
     x = "Year",
-    y = "Soil solution TN",
+    y = "Soil solution TN (micromolePerLiter)",
     title = "W1 Organic Horizon Yearly Mean Soil Solution TN Over Time") +
   theme_minimal()
 
@@ -765,7 +765,7 @@ TN_year_mineral <- ggplot(subset(W1_lysimconc_year, Horizon_type == "Mineral"), 
   facet_grid(Horizon~.) + 
   labs(
     x = "Month",
-    y = "Soil solution TN",
+    y = "Soil solution TN (micromolePerLiter)",
     title = "W1 Mineral Horizon Yearly Mean Soil Solution TN Over Time") +
   theme_minimal()
 
