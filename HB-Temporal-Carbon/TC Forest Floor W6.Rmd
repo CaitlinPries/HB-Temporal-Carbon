@@ -71,7 +71,23 @@ if (is.na(file.size(infile4))) download.file(inUrl4,infile4,method="auto")
 dtMetalperkg <-read.csv(infile4, stringsAsFactors=F, na.strings = c("-9999.9", "-8888.8")) #add in NA codes here!
 unlink(infile4)
 
-rm(inUrl1, infile1, inUrl2, infile2, inUrl3, infile3, inUrl4, infile4)
+inUrl5  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/775e243b7a2b67c0047498533bf5b9d1" 
+infile5 <- tempfile()
+try(download.file(inUrl5,infile5,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
+if (is.na(file.size(infile5))) download.file(inUrl5,infile5,method="auto")
+
+dtMass <-read.csv(infile5, stringsAsFactors=F, na.strings = c("-9999.9","-9999.99","-8888.8")) #add in NA codes here!
+unlink(infile5)
+
+inUrl6  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/f25fc11474e2b787cecc67949ecd0028" 
+infile6 <- tempfile()
+try(download.file(inUrl6,infile6,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
+if (is.na(file.size(infile6))) download.file(inUrl6,infile6,method="auto")
+
+dtCN <-read.csv(infile6, stringsAsFactors=F, na.strings = c("-9999.9", "-8888.8", "-99.99")) #add in NA codes here!
+unlink(infile6)
+
+rm(inUrl1, infile1, inUrl2, infile2, inUrl3, infile3, inUrl4, infile4, inUrl5, infile5)
 
 str(dtSiteInfo)
 str(dtPlotLoc)
@@ -81,68 +97,39 @@ str(dtPlotLoc)
 DESCRIBE how you clean up your data (below is example from Nina's work on the stream chemistry data).
 YOU will have to convert the Date field properly using as.Date. If date is stored in a YYYY-MM-DD format, no need to specify the format. If not, scroll down to bottom of this page to see how to describe various formats: https://www.r-bloggers.com/2013/08/date-formats-in-r/
 
-We will need to substitute half the detection limit for these data to avoid '-777.77' being treated as a numeric value. Note that if were to use the automatically generated EDI code, '-777.77' would become NA. Also, some values in the data table are below the stated detection limit for the analyte even though they do not have a -777.77 code, so with this step we are only dealing with the -777.77 but not making any decision about other numeric values that are below the limit. 
-
-#Description of detection limits from the methods metadata: "Current detection limits for the Driscoll laboratory: 
-Na (0.015 umol/L), K (0.12 umol/L), Ca (0.030 umol/L), 
-Mg (0.0032 umol/L), Alt (0.0026 umol/L), Alm (1.3 umol/L), 
-Alo (1.3 umol/L), NH4 (0.55 umol/L), H4SiO4 (3 umol/L), 
-Cl (0.55 umol/L), NO3 (0.85 umol/L), SO4 (0.53 umol/L), 
-F (0.097 umol/L), DIC (20 umol/L), DOC (20 umol/L), 
-TN (0.81 umol/L). It is suggested to dataset users to use a value of one half the detection limit when a value for a solute is less than the detection limit.
+There do not seem to be any issues with detection limits. The data clean up here is all about combining these dataframes and calculating useful data like the amount of forest floor OM, C, and N
 
 #Make the changes.
-As you will see below, in this example some judgement calls had to be made
 
 ```{r clean up data}
+comb1 <- left_join(dtMass, dtCN, by = c( "Year", "Plot", "Horizon", "Watershed")) %>% 
+  select(-Site_ID) %>% 
+  mutate(OM_pool = OM_TM*PerCentC/100) #TM is in kg/m2 and PerCentC is in % so OM_pool is kg C/m2
 
-#Make a 'look-up' list of values to give measurements below detection limit
-detectionLimits_Driscoll <- list(
-  Na = 0.015/2,
-  K = 0.12/2,
-  Ca2 = 0.030/2,
-  Mg2 = 0.0032/2,
-  Alt = 0.0026/2,
-  Altm = 1.3/2,
-  Alom = 1.3/2,
-  NH4 = 0.55/2,
-  H4SiO4 = 3/2,
-  NO3 = 0.85/2,
-  SO4 = 0.53/2,
-  F = 0.097/2,
-  DIC = 20/2,
-  DOC = 20/2,
-  TN = 0.81/2,
-  Cl = 0.55/2
-)
+  
+dtSiteInfoLong <- dtSiteInfo %>% 
+  rowwise() %>%
+  mutate ( "FF" = mean(c(FF_Thickness1,FF_Thickness2,FF_Thickness3,FF_Thickness4,FF_Thickness5,FF_Thickness6,
+                            FF_Thickness7, FF_Thickness8), na.rm=TRUE), #FF_Thick
+          Oie = mean(c(Oie_Thickness1,Oie_Thickness2,Oie_Thickness3,Oie_Thickness4,Oie_Thickness5,
+                             Oie_Thickness6,Oie_Thickness7, Oie_Thickness8),na.rm=TRUE),
+          min = mean(c(Core_1, Core_2, Core_3, Core_4),na.rm=TRUE),
+          Oa = FF- Oie) %>% 
+  select(c("Year", "Plot","FF", "Oie", "min", "Oa" )) %>% 
+  pivot_longer(cols = FF:Oa,
+               names_to = "Horizon",
+               values_to = "thick") %>% 
+  mutate(Horizon = as.factor(Horizon))  
 
-W6_streamconc <- dt1 %>%
-  mutate(Date = as.Date(Date)) %>% #convert to Date object
-  mutate(across(  #replace -777.77 (values below the detection limit) with half the limit
-    .cols = names(detectionLimits_Driscoll),
-    .fns = ~ ifelse(.x == -777.77, detectionLimits_Driscoll[[cur_column()]], .x)))
+comb2 <- comb1 %>% 
+  mutate(Horizon = case_when(Horizon == "Oie+a" ~ "FF", TRUE ~ Horizon),
+         Horizon = as.factor(Horizon)) %>% 
+  left_join(., dtSiteInfoLong, by = c("Year", "Plot", "Horizon"), relationship = "many-to-many")
 
-#take a look to make sure the data is behaving how you want it to
-summary(W6_streamconc) 
+elev_loc <- read.csv("Grid_Elevation_WS6.csv")
 
-#Note that total monomeric Al (Altm) still has some values below -100. Deal with them:
-unique(W6_streamconc$Altm[which(W6_streamconc$Altm < -100)]) 
-#They are:
-#[1] -1999.98  -887.01  -886.78  -886.64 -1777.76  -888.87
-#take a closer look
-#View(W6_longitudinal[which(W6_longitudinal$Altm < -100),])
-
-#Change the Altm with values < -100 to NA and then remove rows from the df with no chemistry data for any analyte:
-W6_streamconc <- W6_streamconc %>%
-  mutate(Altm = ifelse(Altm < -100, NA, Altm)) %>%
-  filter(!if_all(pH:TN, is.na))
-
-#look at the data again
-str(W6_streamconc)  
-summary(W6_streamconc)  
-
-#clean up
-rm(dt1) #remove the original uncleaned data file
+finalFF <- comb2 %>% 
+  left_join(., elev_loc, by = "Plot")
 
 ```
 
@@ -154,18 +141,11 @@ For now, keep it to its native time frame
 # ```
 
 #Summarize your data by month and year for graphing
-DESCRIBE timestep(s) of your data here: Monthly
+DESCRIBE timestep(s) of your data here: every several years
 In the example below we are averaging over sites for each month
 ```{r}
-W6_streamconc_month <- W6_streamconc %>%
-  mutate(month = floor_date(Date, "month")) %>% #by month, converts all dates to 1st of month
-  group_by(month) %>%
-  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
-            .groups = "drop")
-
-W6_streamconc_year <- W6_streamconc %>%
-  mutate(year = floor_date(Date, "year")) %>% #by year, converts all dates to 1st of year
-  group_by(year) %>%
+W6_FF <- finalFF %>%
+  group_by(Year, Horizon, Elevation_grp) %>%
   summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
             .groups = "drop")
 
@@ -176,13 +156,14 @@ W6_streamconc_year <- W6_streamconc %>%
 #Graph your analytes by month and year in ggplot
 In this example, we have DIC and DOC
 ```{r}
-DIC_month <- ggplot(W6_streamconc_month, aes(x = month, y = DIC)) +
+FF_year <- ggplot(W6_FF, aes(x = Year, y = thick, col=Elevation_grp)) +
   geom_point(size = 1) +
-  geom_line() +
+  #geom_line() +
   labs(
-    x = "Month",
-    y = "Mean DIC (umol/L)",
-    title = "Monthly Mean DIC Over Time") +
+    x = "Year",
+    y = "Forest Floor (cm)",
+    title = "FF Thickness Over Time") +
+  facet_wrap(~Horizon)+
   theme_minimal()
 
 DOC_month <- ggplot(W6_streamconc_month, aes(x = month, y = DOC)) +

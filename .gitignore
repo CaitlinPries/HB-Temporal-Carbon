@@ -51,7 +51,4 @@ rsconnect/
 
 # remove DS_store
 .DS_Store
-.DS_Store
-HB-Temporal-Carbon/.DS_Store
-HB-Temporal-Carbon/Graphs/.DS_Store
-.DS_Store
+.Rproj.user
