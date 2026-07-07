@@ -721,4 +721,63 @@ for (i in seq_along(plots)) {
 }
 ```
 
+#CEHP graphing and basic analysis for talk
+```{r}
+library(ggeffects)
+
+TemporalTheme <- theme_classic() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12, color = "black"),
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.ticks = element_line(color = "black"),
+    axis.ticks.length = unit(0.15, "cm"),
+    panel.grid.minor = element_blank()
+  )
+
+AirTemp_year_HQ <- AirTemp_year_STA %>% 
+  filter(STA == "HQ\nLow Elevation\n255 m") %>% 
+  filter(year >= as.Date("1980-01-01") & 
+        year <= as.Date("2025-01-01")) %>% 
+  mutate(year = as.numeric(format(year, "%Y")))
+
+mod1=lm(AVE_mean~year, data = AirTemp_year_HQ)
+summary(mod1)
+
+scaleMod1=lm(scale(AVE_mean)~scale(year), data = AirTemp_year_HQ)
+summary(scaleMod1)
+
+pred <- ggpredict(mod1, terms = "year")
+
+AT<-AirTemp_year_HQ %>% 
+ggplot() +
+  geom_point(aes(x = year, y = AVE_mean), size = 3) +
+  geom_line(aes(x = year, y = AVE_mean), linewidth = 0.4) +
+  geom_line(pred, mapping = aes(x=x, y=predicted),
+              lwd = 1) +
+  labs(
+    y = "Mean Temperature (C)",
+    title = "Annual average air temp at HQ") +
+  TemporalTheme
+
+plots <- list(AT) #change to your graph names
+names <- c("AT") #change to names
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+
+
+
+```
+
+
 LASTLY push your changes to our github repo!!
