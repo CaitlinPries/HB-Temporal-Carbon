@@ -399,4 +399,84 @@ for (i in seq_along(plots)) {
 }
 ```
 
+#CEHP graphing and basic analysis for talk
+```{r}
+library(ggeffects)
+
+TemporalTheme <- theme_classic() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12, color = "black"),
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.ticks = element_line(color = "black"),
+    axis.ticks.length = unit(0.15, "cm"),
+    panel.grid.minor = element_blank()
+  )
+
+str(W6_streamvwm_year)
+
+W6_stream_TC <- W6_streamvwm_year %>% 
+  mutate(year = as.numeric(format(year, "%Y"))) %>% 
+  filter(year >= 1980 & year <= 2025) %>% 
+  mutate(across(where(is.numeric), ~na_if(., 0)))
+  
+#DOC
+mod1=lm(DOC_vwm~year, data = W6_stream_TC)
+summary(mod1)
+
+scaleMod1=lm(scale(DOC_vwm)~scale(year), data = W6_stream_TC)
+summary(scaleMod1)
+
+pred <- ggpredict(mod1, terms = "year")
+
+streamDOCT<-W6_stream_TC %>% 
+ggplot() +
+  geom_point(aes(x = year, y = DOC_vwm), size = 3) +
+  geom_line(aes(x = year, y = DOC_vwm), linewidth = 0.4) +
+  geom_line(pred, mapping = aes(x=x, y=predicted),
+              lwd = 1) +
+  labs(
+    y = "DOC (mg/L)",
+    title = "Annual volume-weighted average stream DOC (W6)") +
+  TemporalTheme
+
+#DIC
+mod1=lm(DIC_vwm~year, data = W6_stream_TC)
+summary(mod1)
+
+scaleMod1=lm(scale(DIC_vwm)~scale(year), data = W6_stream_TC)
+summary(scaleMod1)
+
+pred <- ggpredict(mod1, terms = "year")
+
+streamDICT<-W6_stream_TC %>% 
+ggplot() +
+  geom_point(aes(x = year, y = DIC_vwm), size = 3) +
+  geom_line(aes(x = year, y = DIC_vwm), linewidth = 0.4) +
+  geom_line(pred, mapping = aes(x=x, y=predicted),
+              lwd = 1, linetype = "dashed") +
+  labs(
+    y = "DIC (uMol/L)",
+    title = "Annual volume-weighted average stream DIC (W6)") +
+  TemporalTheme
+
+plots <- list(streamDOCT, streamDICT) #change to your graph names
+names <- c("streamDOCT", "streamDICT") #change to names
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+
+
+
+```
+
 LASTLY push your changes to our github repo!!

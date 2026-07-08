@@ -20,7 +20,7 @@ knitr::opts_knit$set(root.dir = here())
 
 ```
 
-#DESCRIBE DATA HERE: Hubbard Brook Routine Seasonal Phenology Measurements 1989-present 
+#DESCRIBE DATA HERE: Fine Litterfall Data at the Hubbard Brook Experimental Forest, 1992 - ongoing
 
 #Dealing with NA codes
 DESCRIBE the NA system for your dataset 
@@ -39,11 +39,6 @@ infile1 <- tempfile()
 try(download.file(inUrl1,infile1,method="curl"))
 if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
 ```
-
-
-```{r access data from EDI}
-```
-
 
 ```{r access data from EDI}
 hb_litterfall <-read.csv(infile1,header=F 
@@ -175,4 +170,64 @@ for (i in seq_along(plots)) {
 }
 ```
 
+#CEHP graphing and basic analysis for talk
+```{r}
+library(ggeffects)
+
+TemporalTheme <- theme_classic() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12, color = "black"),
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.ticks = element_line(color = "black"),
+    axis.ticks.length = unit(0.15, "cm"),
+    panel.grid.minor = element_blank()
+  )
+
+str(avg_litter)
+
+avg_litterT <- avg_litter %>% 
+  filter(SITE == "BB") 
+
+
+mod1=lm(avg_litter~YEAR, data = avg_litterT)
+summary(mod1)
+
+scaleMod1=lm(scale(avg_litter)~scale(YEAR), data = avg_litterT)
+summary(scaleMod1)
+
+pred <- ggpredict(mod1, terms = "YEAR")
+
+LT<-avg_litterT %>% 
+ggplot() +
+  geom_point(aes(x = YEAR, y = avg_litter), size = 3) +
+  geom_errorbar(aes(x = YEAR, ymin = avg_litter - se_litter, ymax =
+                      avg_litter + se_litter), width=0.5)+ 
+  geom_line(aes(x = YEAR, y = avg_litter), linewidth = 0.4) +
+  geom_line(pred, mapping = aes(x=x, y=predicted),
+              lwd = 1) +
+  scale_x_continuous(limits = c(1980, max(avg_litterT$YEAR)))+
+  labs(
+    y = "Fine Litterfall (g)",
+    title = "Average Annual Litterfall (W6/BB)") +
+  TemporalTheme
+
+plots <- list(LT) #change to your graph names
+names <- c("LT") #change to names
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+
+
+
+```
 LASTLY push your changes to our github repo!!
