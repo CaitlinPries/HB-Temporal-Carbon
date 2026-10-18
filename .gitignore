@@ -1,6 +1,7 @@
 # History files
 .Rhistory
 .Rapp.history
+.Renviron
 
 # Session Data files
 .RData
@@ -52,3 +53,4 @@ rsconnect/
 # remove DS_store
 .DS_Store
 .Rproj.user
+
