@@ -1,0 +1,195 @@
+---
+title: "HB Temporal C Synthesis - Litterfall"
+author: "Alix Contosta"
+date: "`r Sys.Date()`"
+output: html_document
+---
+#Setup
+```{r setup, include=FALSE}
+rm(list = ls()) #clear R environment
+
+# Check for and install required packages and load libraries
+for (package in c( 'tidyverse', 'here', 'plotrix')) {    #can add more packages to this vector
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package)
+    library(package, character.only=T)
+  }
+}
+
+knitr::opts_knit$set(root.dir = here())
+
+```
+
+#DESCRIBE DATA HERE: Soil-atmosphere fluxes of carbon dioxide, nitrous oxide and methane on Watershed 1 and Bear Brook, 2002-2024 
+
+#Dealing with NA codes
+DESCRIBE the NA system for your dataset 
+
+Metadata on EDI notes that -9999 indicates "no data available." There are also instances of NAs showing up as -999.99, -9999.00, and -9999.000
+
+#Access data from EDI
+Note where you need to paste in the url of your dataset
+Note where you need to add in NA codes that you described above for your dataset
+
+```{r access data from EDI}
+options(HTTPUserAgent="EDI_CodeGen")
+
+inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/116/14/f9ff9689063d019e7f7fde8ab4d9a5cc" 
+infile1 <- tempfile()
+try(download.file(inUrl1,infile1,method="curl"))
+if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
+```
+
+
+```{r access data from EDI}
+hb_gasflux <-read.csv(infile1,header=F 
+                         ,skip=1
+                         ,sep=","  
+                         , col.names=c(
+                           "Date",
+                           "Site",
+                           "Elevation",
+                           "Chamber",
+                           "CO2_rate",
+                           "N2O_rate",
+                           "CH4_rate"), 
+                         na.strings = c("-999.99", "-9999",  "-9999.00", "-9999.000"), check.names=TRUE)
+
+
+
+unlink(infile1)
+
+```
+
+#Data cleaning
+Average monhtly and annual fluxes have to be calculated for each gas species and for Bear Brook and W1
+
+
+#Make the changes.
+
+```{r access data from EDI}
+#convert Date to a Date object
+hb_gasflux$Date = as.Date(hb_gasflux$Date, "%Y-%m-%d")
+
+#separate out year for calculating annual averages
+hb_gasflux$Year = strftime(hb_gasflux$Date, "%Y")
+
+#separate out month for calculating monthly averages
+hb_gasflux$Month = strftime(hb_gasflux$Date, "%m")
+
+hb_gasflux_YearBB <- hb_gasflux %>% 
+  mutate(Year = as.numeric(Year)) %>% 
+  filter(Site == "Bear Brook") %>% 
+  group_by(Elevation, Year) %>%
+  summarise(avg_CO2 = mean(CO2_rate, na.rm = TRUE),
+            se_CO2 = std.error(CO2_rate, na.rm = TRUE))  %>% 
+  ungroup()
+hb_gasfluxYearT <- hb_gasflux_YearBB %>% 
+  group_by(Year) %>%
+  summarise(avg_CO2_year = mean(avg_CO2, na.rm = TRUE),
+            se_CO2 = std.error(avg_CO2, na.rm = TRUE))
+  
+
+```
+
+#Summarize your data by month and year for graphing
+Note that this step is skipped here because data are already in an annual timestep so code is commented out for now
+
+#Graph your data by year in ggplot
+In this version, there is a single plot, points represent SITE
+```{r}
+
+#litterfall
+litter <-ggplot(avg_litter, aes(x= YEAR, y = avg_litter, color = SITE)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(x = YEAR, ymin = avg_litter - se_litter, ymax =
+                      avg_litter + se_litter), width=0.5)+ 
+  labs(
+    x = "Year",
+    y = "Litter Mass (g)",
+    title = "Annual Litterfall") +
+  theme_minimal()
+
+
+
+```
+
+#Save all your plots to the graph folder
+```{r}
+
+#make list of plots
+plots <- list(litter) 
+
+#provide names
+names <- c("litterfall") 
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+```
+
+#CEHP graphing and basic analysis for talk
+```{r}
+library(ggeffects)
+
+TemporalTheme <- theme_classic() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12, color = "black"),
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.ticks = element_line(color = "black"),
+    axis.ticks.length = unit(0.15, "cm"),
+    panel.grid.minor = element_blank()
+  )
+
+str(hb_gasfluxYearT)
+
+mod1=lm(avg_CO2_year~Year, data = hb_gasfluxYearT)
+summary(mod1)
+
+scaleMod1=lm(scale(avg_CO2_year)~scale(Year), data = hb_gasfluxYearT)
+summary(scaleMod1)
+
+pred <- ggpredict(mod1, terms = "Year")
+
+respT<-hb_gasfluxYearT %>% 
+ggplot() +
+  geom_point(aes(x = Year, y = avg_CO2_year), size = 3) +
+  geom_errorbar(aes(x = Year, ymin = avg_CO2_year - se_CO2, ymax =
+                      avg_CO2_year + se_CO2), width=0.5)+ 
+  geom_line(aes(x = Year, y = avg_CO2_year), linewidth = 0.4) +
+  geom_line(pred, mapping = aes(x=x, y=predicted),
+              lwd = 1) +
+  scale_x_continuous(limits = c(1980, max(hb_gasfluxYearT$Year)))+
+  labs(
+    y = "CO2 Flux (g C m-2 hr-1)",
+    title = "Average Soil respiration (W6/BB)") +
+  TemporalTheme
+
+plots <- list(respT) #change to your graph names
+names <- c("respT") #change to names
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+
+
+
+
+```
+LASTLY push your changes to our github repo!!

@@ -1,0 +1,552 @@
+---
+title: "HB Temporal Carbon - W6 Lysimeter Data"
+author: "Angela Possinger"
+date: "`r Sys.Date()`"
+output: html_document
+---
+#Setup
+```{r setup, include=FALSE}
+rm(list = ls()) #clear R environment
+
+# Check for and install required packages and load libraries
+for (package in c( 'tidyverse', 'here')) {    #can add more packages to this vector
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package)
+    library(package, character.only=T)
+  }
+}
+
+knitr::opts_knit$set(root.dir = here())
+
+```
+
+#TITLE FROM EDI: Chemistry of freely-draining soil solutions at the Hubbard Brook Experimental Forest, Watershed 6, 1984 - present
+DESCRIBE DATA: W6 lysimeter soil solution chemistry data, approximately monthly since 1984 
+Focus variables: pH, ANC, Al, Si, NH4, NO3, DOC, DIC, TN
+
+#Dealing with NA codes
+Here are the descriptions of missing value codes from the metadata. The codes are the same for all variables, so that makes things easy. In this script, I code -999.99, -888.88 and -666.66 as NA when I load the data. Then I deal with -777.77 separately. 
+
+-999.99, Data missing, or not taken at this time
+-888.88, Sample volume too small for analysis
+-666.66, Result Not Reported: Failed Internal QA/QC Review
+-777.77, Analyte concentration below limit of detection
+
+#Access data from EDI
+Note where you need to paste in the url of your dataset
+Note where you need to add in NA codes that you described above for your dataset
+
+```{r access data from EDI}
+options(HTTPUserAgent="EDI_CodeGen")
+
+inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/62/21/c03398425ac8e21a12750cc2655202e4" #paste url here
+infile1 <- tempfile()
+try(download.file(inUrl1,infile1,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
+if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
+
+dt1 <-read.csv(infile1, stringsAsFactors=F, na.strings = c("-999.99", "-888.88", "-666.66")) #add in NA codes here!
+unlink(infile1)
+
+rm(inUrl1, infile1)
+```
+
+#Clean up your data
+DESCRIBE how you clean up your data (below is example from Nina's work on the stream chemistry data).
+YOU will have to convert the Date field properly using as.Date. If date is stored in a YYYY-MM-DD format, no need to specify the format. If not, scroll down to bottom of this page to see how to describe various formats: https://www.r-bloggers.com/2013/08/date-formats-in-r/
+
+We will need to substitute half the detection limit for these data to avoid '-777.77' being treated as a numeric value. Note that if were to use the automatically generated EDI code, '-777.77' would become NA. Also, some values in the data table are below the stated detection limit for the analyte even though they do not have a -777.77 code, so with this step we are only dealing with the -777.77 but not making any decision about other numeric values that are below the limit. 
+
+Calculated variables such as ANC are not easily estimated by detection limits; -777.77 values for ANC will be coded as NA. 
+
+pH doesn't have a logical detection limit; -777.77 values for pH will be coded as NA. 
+
+#Description of detection limits from the methods metadata: "Current detection limits for the Driscoll laboratory: 
+Na (0.015 umol/L), K (0.12 umol/L), Ca (0.030 umol/L), 
+Mg (0.0032 umol/L), Alt (0.0026 umol/L), Alm (1.3 umol/L), 
+Alo (1.3 umol/L), NH4 (0.55 umol/L), H4SiO4 (3 umol/L), 
+Cl (0.55 umol/L), NO3 (0.85 umol/L), SO4 (0.53 umol/L), 
+F (0.097 umol/L), DIC (20 umol/L), DOC (20 umol/L), 
+TN (0.81 umol/L). It is suggested to dataset users to use a value of one half the detection limit when a value for a solute is less than the detection limit.
+
+#Make the changes.
+As you will see below, in this example some judgement calls had to be made
+
+```{r clean up data}
+
+#Remove "." from column names
+names(dt1) <- gsub("\\.", "", names(dt1))
+
+#Make a 'look-up' list of values to give measurements below detection limit
+detectionLimits_Driscoll <- list(
+  Na = 0.015/2,
+  K = 0.12/2,
+  Ca2 = 0.030/2,
+  Mg2 = 0.0032/2,
+  Alt = 0.0026/2,
+  Altm = 1.3/2,
+  Alom = 1.3/2,
+  NH4 = 0.55/2,
+  H4SiO4 = 3/2,
+  NO3 = 0.85/2,
+  SO4 = 0.53/2,
+  F = 0.097/2,
+  DIC = 20/2,
+  DOC = 20/2,
+  TN = 0.81/2,
+  Cl = 0.55/2, 
+  ANC = NA, 
+  pH = NA
+)
+
+W6_lysimconc <- dt1 %>%
+  mutate(Date = as.Date(Date)) %>% #convert to Date object
+  mutate(across(  #replace -777.77 (values below the detection limit) with half the limit
+    .cols = names(detectionLimits_Driscoll),
+    .fns = ~ ifelse(.x == -777.77, detectionLimits_Driscoll[[cur_column()]], .x)))
+
+#take a look to make sure the data is behaving how you want it to
+summary(W6_lysimconc) 
+
+#Extreme low values: pH, ANC, Al, NH4, NO3, DOC, DIC, TN
+#pH
+unique(W6_lysimconc$pH[which(W6_lysimconc$pH < 0)]) 
+#They are:
+#NA
+
+#ANC
+#Distribution of ANC 
+hist(W6_lysimconc$ANC)
+unique(W6_lysimconc$ANC[which(W6_lysimconc$ANC > 400)]) 
+#They are:
+#NA
+
+#Alt
+unique(W6_lysimconc$Alt[which(W6_lysimconc$Alt < -100)]) 
+#NA
+
+#Altm
+unique(W6_lysimconc$Altm[which(W6_lysimconc$Altm < -100)]) 
+#They are:
+#-1999.98  -757.67 -1777.76  -773.38  -874.71
+#take a closer look
+View(W6_lysimconc[which(W6_lysimconc$Altm < -100),])
+#All other values NA - set Altm to NA
+
+#Alom
+unique(W6_lysimconc$Alom[which(W6_lysimconc$Alom < -10)]) 
+#They are:
+#NA
+
+#NH4
+unique(W6_lysimconc$NH4[which(W6_lysimconc$NH4 < -100)]) 
+#They are:
+#NA
+
+#NO3
+unique(W6_lysimconc$NO3[which(W6_lysimconc$NO3 < -100)]) 
+#They are:
+#NA
+
+#DOC
+unique(W6_lysimconc$DOC[which(W6_lysimconc$DOC < -100)]) 
+#They are:
+#NA
+
+#DIC
+unique(W6_lysimconc$DIC[which(W6_lysimconc$DIC < -100)]) 
+#They are:
+#NA
+
+#TN
+unique(W6_lysimconc$TN[which(W6_lysimconc$TN < -10)]) 
+#They are:
+#NA
+
+#Change the pH, Al, etc. with values defined above to NA and then remove rows from the df with no chemistry data for any analyte:
+W6_lysimconc <- W6_lysimconc %>%
+  #mutate(pH = ifelse(pH < 0, NA, pH)) %>%
+  #mutate(Alt = ifelse(Alt < -100, NA, Alt)) %>%
+  mutate(Altm = ifelse(Altm < -100, NA, Altm)) %>%
+  #mutate(TN = ifelse(TN < -10, NA, TN)) %>%
+  filter(!if_all(pH:TN, is.na))
+
+#Convert the character columns to factors (needed for month and year function below)
+W6_lysimconc <- W6_lysimconc %>%
+  mutate(across(c(WS, Site, Horizon), as.factor))
+
+#Add column for "organic" and "mineral" to split horizon types
+W6_lysimconc <- W6_lysimconc %>%
+  mutate(Horizon_type = ifelse(
+    Horizon %in% c("Oe", "Oae", "Oa"),
+    "Organic",
+    "Mineral"
+  ))
+
+
+#clean up
+rm(dt1) #remove the original uncleaned data file
+
+```
+
+#Filter data to the window of time we are interested in
+For now, keep it to its native time frame
+# ```{r}
+# W6_streamconc <- W6_streamconc %>% 
+#   filter(Date > "1980-01-01" & Date< "2022-12-31")
+# ```
+
+#Summarize your data by month and year for graphing
+DESCRIBE timestep(s) of your data here: Monthly
+In the example below we are averaging over sites for each month
+```{r}
+W6_lysimconc_month <- W6_lysimconc %>%
+  mutate(month = floor_date(Date, "month")) %>% #by month, converts all dates to 1st of month
+  group_by(month, WS, Horizon, Horizon_type) %>%
+  summarise(
+    across(
+      where(is.numeric),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+W6_lysimconc_year <- W6_lysimconc %>%
+  mutate(year = floor_date(Date, "year")) %>% #by year, converts all dates to 1st of year
+  group_by(year, WS, Horizon, Horizon_type) %>%
+  summarise(
+    across(
+      where(is.numeric),
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),
+        se   = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+#save these?? Right now no, and there is no data folder in the project
+#write.csv(data_name, here("data", "data_name.csv"))
+```
+
+#Graph your analytes by month and year in ggplot
+```{r}
+#Ordering for horizons
+W6_lysimconc_month$Horizon <- factor(W6_lysimconc_month$Horizon, levels=c("Oa","Bh","Bs"))
+W6_lysimconc_year$Horizon <- factor(W6_lysimconc_year$Horizon, levels=c("Oa","Bh","Bs"))
+
+#pH#### 
+#Month
+pH_month <- ggplot(W6_lysimconc_month, aes(x = month, y = pH_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=pH_mean-pH_se, ymax=pH_mean+pH_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Month",
+    y = "Soil solution pH",
+    title = "W6 Monthly Mean Soil Solution pH Over Time") +
+  theme_minimal()
+
+#Year 
+pH_year <- ggplot(W6_lysimconc_year, aes(x = year, y = pH_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=pH_mean-pH_se, ymax=pH_mean+pH_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Year",
+    y = "Soil solution pH",
+    title = "W6 Mean Soil Solution pH Over Time") +
+  theme_minimal()
+
+#ANC#### 
+#Month
+ANC_month <- ggplot(W6_lysimconc_month,
+aes(x = month, y = ANC_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=ANC_mean-ANC_se, ymax=ANC_mean+ANC_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Month",
+    y = "Soil solution ANC (microEquivalentPerLiter)",
+    title = "W6 Monthly Mean Soil Solution ANC Over Time") +
+  theme_minimal()
+
+#Year 
+ANC_year <- ggplot(W6_lysimconc_year,
+aes(x = year, y = ANC_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=ANC_mean-ANC_se, ymax=ANC_mean+ANC_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Year",
+    y = "Soil solution ANC (microEquivalentPerLiter)",
+    title = "W6 Yearly Mean Soil Solution ANC Over Time") +
+  theme_minimal()
+
+#Alt#### 
+#Month
+Alt_month <- ggplot(W6_lysimconc_month, 
+aes(x = month, y = Alt_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=Alt_mean-Alt_se, ymax=Alt_mean+Alt_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Month",
+    y = "Soil solution Alt (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution Total Al Over Time") +
+  theme_minimal()
+
+#Year 
+Alt_year <- ggplot(W6_lysimconc_year, 
+aes(x = year, y = Alt_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=Alt_mean-Alt_se, ymax=Alt_mean+Alt_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Year",
+    y = "Soil solution Alt (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution Total Al Over Time") +
+  theme_minimal()
+
+#Altm#### 
+#Month
+Altm_month <- ggplot(W6_lysimconc_month, 
+aes(x = month, y = Altm_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=Altm_mean-Altm_se, ymax=Altm_mean+Altm_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Month",
+    y = "Soil solution Alt (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution Total Monomeric Al Over Time") +
+  theme_minimal()
+
+#Year 
+Altm_year <- ggplot(W6_lysimconc_year,
+aes(x = year, y = Altm_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=Altm_mean-Altm_se, ymax=Altm_mean+Altm_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Month",
+    y = "Soil solution Altm (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution Total Monomeric Al Over Time") +
+  theme_minimal()
+
+#Alom#### 
+#Month
+Alom_month <- ggplot(W6_lysimconc_month, 
+aes(x = month, y = Alom_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=Alom_mean-Alom_se, ymax=Alom_mean+Alom_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Month",
+    y = "Soil solution Alom (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution Organic Monomeric Al Over Time") +
+  theme_minimal()
+
+#Year 
+Alom_year <- ggplot(W6_lysimconc_year, 
+aes(x = year, y = Alom_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=Alom_mean-Alom_se, ymax=Alom_mean+Alom_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Year",
+    y = "Soil solution Alom (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution Organic Monomeric Al Over Time") +
+  theme_minimal()
+
+#NH4#### 
+#Month
+NH4_month <- ggplot(W6_lysimconc_month,
+aes(x = month, y = NH4_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=NH4_mean-NH4_se, ymax=NH4_mean+NH4_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Month",
+    y = "Soil solution NH4+ (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution NH4+ Over Time") +
+  theme_minimal()
+
+#Year 
+NH4_year <- ggplot(W6_lysimconc_year, 
+  aes(x = year, y = NH4_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=NH4_mean-NH4_se, ymax=NH4_mean+NH4_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Year",
+    y = "Soil solution NH4+ (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution NH4+ Over Time") +
+  theme_minimal()
+
+#NO3#### 
+#Month
+NO3_month <- ggplot(W6_lysimconc_month, 
+  aes(x = month, y = NO3_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=NO3_mean-NO3_se, ymax=NO3_mean+NO3_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Month",
+    y = "Soil solution NO3- (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution NO3- Over Time") +
+  theme_minimal()
+
+#Year 
+NO3_year <- ggplot(W6_lysimconc_year,
+                           aes(x = year, y = NO3_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=NO3_mean-NO3_se, ymax=NO3_mean+NO3_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Year",
+    y = "Soil solution NO3- (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution NO3- Over Time") +
+  theme_minimal()
+
+#DOC#### 
+#Month
+DOC_month <- ggplot(W6_lysimconc_month, 
+                    aes(x = month, y = DOC_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=DOC_mean-DOC_se, ymax=DOC_mean+DOC_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Month",
+    y = "Soil solution DOC (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution DOC Over Time") +
+  theme_minimal()
+
+#Year 
+DOC_year <- ggplot(W6_lysimconc_year,
+aes(x = year, y = DOC_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=DOC_mean-DOC_se, ymax=DOC_mean+DOC_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Year",
+    y = "Soil solution DOC (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution DOC Over Time") +
+  theme_minimal()
+
+#DIC#### 
+#Month
+DIC_month <- ggplot(W6_lysimconc_month, 
+aes(x = month, y = DIC_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=DIC_mean-DIC_se, ymax=DIC_mean+DIC_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Month",
+    y = "Soil solution DIC (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution DIC Over Time") +
+  theme_minimal()
+
+#Year 
+DIC_year <- ggplot(W6_lysimconc_year, 
+aes(x = year, y = DIC_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=DIC_mean-DIC_se, ymax=DIC_mean+DIC_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Year",
+    y = "Soil solution DIC (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution DIC Over Time") +
+  theme_minimal()
+
+#TN#### 
+#Month
+TN_month <- ggplot(W6_lysimconc_month, 
+aes(x = month, y = TN_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=TN_mean-TN_se, ymax=TN_mean+TN_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Month",
+    y = "Soil solution TN (micromolePerLiter)",
+    title = "W6 Monthly Mean Soil Solution TN Over Time") +
+  theme_minimal()
+
+#Year 
+TN_year <- ggplot(W6_lysimconc_year,
+aes(x = year, y = TN_mean)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_errorbar(aes(ymin=TN_mean-TN_se, ymax=TN_mean+TN_se), width=0.2) + 
+  facet_grid(Horizon~.) + 
+  labs(
+    x = "Year",
+    y = "Soil solution TN (micromolePerLiter)",
+    title = "W6 Yearly Mean Soil Solution TN Over Time") +
+  theme_minimal()
+
+```
+
+#Save all your plots to the graph folder
+```{r}
+plots <- list(
+  pH_month, pH_year,
+  ANC_month, ANC_year,
+  Alt_month, Alt_year,
+  Altm_month, Altm_year,
+  Alom_month, Alom_year,
+  NH4_month, NH4_year,
+  NO3_month, NO3_year,
+  DOC_month, DOC_year,
+  DIC_month, DIC_year,
+  TN_month, TN_year
+)
+
+#change to your graph names
+names <- c(
+  "W6_pH_month", "W6_pH_year",
+  "W6_ANC_month", "W6_ANC_year",
+  "W6_Alt_month","W6_Alt_year",
+  "W6_Altm_month","W6_Altm_year",
+  "W6_Alom_month","W6_Alom_year",
+  "W6_NH4_month","W6_NH4_year",
+  "W6_NO3_month","W6_NO3_year",
+  "W6_DOC_month","W6_DOC_year",
+  "W6_DIC_month","W6_DIC_year",
+  "W6_TN_month","W6_TN_year"
+)
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 8,
+    height = 10,
+    dpi = 300
+  )
+}
+```
+
+LASTLY push your changes to our github repo!!
