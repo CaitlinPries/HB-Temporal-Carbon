@@ -33,8 +33,19 @@ https://portal.edirepository.org/nis/mapbrowse?packageid=knb-lter-hbr.413.1
 ```{r access data from EDI}
 options(HTTPUserAgent="EDI_CodeGen")
 	      
-inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/413/1/6134ef924e83b940c5382d14dc30a1d1" 
-infile2 <- tempfile()
+# EDI now requires an access key. It is read from the EDI_ACCESS_KEY environment
+# variable (set in the project's .Renviron file, see README note) so the key is
+# never written into this script or pushed to GitHub.
+myEDIAccessKey <- Sys.getenv("EDI_ACCESS_KEY")
+
+# check for required access key
+if (myEDIAccessKey == ""){
+stop(paste0("A VALID EDI ACCESS KEY IS REQUIRED FOR THIS CODE TO DOWNLOAD THE NEEDED DATA \n",
+"Please set EDI_ACCESS_KEY in your .Renviron file (or myEDIAccessKey in this script) and rerun"))
+}
+
+inUrl1  <- paste0("https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/413/1/6134ef924e83b940c5382d14dc30a1d1", "?key=", myEDIAccessKey) 
+infile1 <- tempfile()
 try(download.file(inUrl1,infile1,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
 if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
 
@@ -57,6 +68,12 @@ CCASE_growth_summary <- CCASE_growth %>%
   group_by(Year, Treatment) %>%
   summarize(Annual_C_growth_kgC.m2_mean = mean(Annual_C_growth_kgC.m2),
             Annual_C_growth_kgC.m2_SE = std.error(Annual_C_growth_kgC.m2))
+```
+
+```{r save outputs}
+#Save the monthly/annual summary tables as .csv files in the project's output folder
+dir.create(here("output"), showWarnings = FALSE)
+write_csv(CCASE_growth_summary %>% ungroup(), here("output", "AGB_CCASE_annual.csv"))
 ```
 
 #Graph your data by year in ggplot

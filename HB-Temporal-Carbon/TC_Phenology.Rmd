@@ -34,7 +34,18 @@ Note where you need to add in NA codes that you described above for your dataset
 ```{r access data from EDI}
 options(HTTPUserAgent="EDI_CodeGen")
 
-inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/51/16/9f623c83fb1da7595c6d2d498bde15df" 
+# EDI now requires an access key. It is read from the EDI_ACCESS_KEY environment
+# variable (set in the project's .Renviron file, see README note) so the key is
+# never written into this script or pushed to GitHub.
+myEDIAccessKey <- Sys.getenv("EDI_ACCESS_KEY")
+
+# check for required access key
+if (myEDIAccessKey == ""){
+stop(paste0("A VALID EDI ACCESS KEY IS REQUIRED FOR THIS CODE TO DOWNLOAD THE NEEDED DATA \n",
+"Please set EDI_ACCESS_KEY in your .Renviron file (or myEDIAccessKey in this script) and rerun"))
+}
+
+inUrl1  <- paste0("https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/51/16/9f623c83fb1da7595c6d2d498bde15df", "?key=", myEDIAccessKey) 
 infile1 <- tempfile()
 try(download.file(inUrl1,infile1,method="curl"))
 if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
@@ -77,7 +88,7 @@ This makes some assumptions about when photosynthesis turns and off
 #Make the changes.
 As you will see below, in this example some judgement calls had to be made
 
-```{r access data from EDI}
+```{r access data from EDI 2}
 
 #define the phenology index threshold that delineates the start and the end of the growing season
 phenology_index_threshold <- 3
@@ -146,6 +157,12 @@ summary(growing_season)
 #clean up
 rm(hb_phenology, spring_phenology, fall_phenology) #remove the original uncleaned data files
 
+```
+
+```{r save outputs}
+#Save the monthly/annual summary tables as .csv files in the project's output folder
+dir.create(here("output"), showWarnings = FALSE)
+write_csv(growing_season, here("output", "Phenology_annual.csv"))
 ```
 
 #Summarize your data by month and year for graphing

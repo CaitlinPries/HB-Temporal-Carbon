@@ -39,7 +39,18 @@ Note where you need to add in NA codes that you described above for your dataset
 ```{r access data from EDI}
 options(HTTPUserAgent="EDI_CodeGen")
 
-inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/138/14/429a88e19df84e6b1ade16a1ab434f62" #paste url here
+# EDI now requires an access key. It is read from the EDI_ACCESS_KEY environment
+# variable (set in the project's .Renviron file, see README note) so the key is
+# never written into this script or pushed to GitHub.
+myEDIAccessKey <- Sys.getenv("EDI_ACCESS_KEY")
+
+# check for required access key
+if (myEDIAccessKey == ""){
+stop(paste0("A VALID EDI ACCESS KEY IS REQUIRED FOR THIS CODE TO DOWNLOAD THE NEEDED DATA \n",
+"Please set EDI_ACCESS_KEY in your .Renviron file (or myEDIAccessKey in this script) and rerun"))
+}
+
+inUrl1  <- paste0("https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/138/14/429a88e19df84e6b1ade16a1ab434f62", "?key=", myEDIAccessKey) #paste url here
 infile1 <- tempfile()
 try(download.file(inUrl1,infile1,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
 if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
@@ -220,7 +231,7 @@ For now, keep it to its native time frame
 DESCRIBE timestep(s) of your data here: Monthly
 In the example below we are averaging over sites for each month
 ```{r}
-W1_lysimconc_month <- W1_lysimconc %>%
+W1_lysimconc_monthly <- W1_lysimconc %>%
   mutate(month = floor_date(Date, "month")) %>% #by month, converts all dates to 1st of month
   group_by(month, WS, Horizon, Horizon_type) %>%
 
@@ -238,7 +249,7 @@ W1_lysimconc_month <- W1_lysimconc %>%
     .groups = "drop"
   )
 
-W1_lysimconc_year <- W1_lysimconc %>%
+W1_lysimconc_annual <- W1_lysimconc %>%
   mutate(year = floor_date(Date, "year")) %>% #by year, converts all dates to 1st of year
   group_by(year, WS, Horizon, Horizon_type) %>%
   summarise(
@@ -255,6 +266,13 @@ W1_lysimconc_year <- W1_lysimconc %>%
 
 #save these?? Right now no, and there is no data folder in the project
 #write.csv(data_name, here("data", "data_name.csv"))
+```
+
+```{r save outputs}
+#Save the monthly/annual summary tables as .csv files in the project's output folder
+dir.create(here("output"), showWarnings = FALSE)
+write_csv(W1_lysimconc_monthly, here("output", "LysimeterW1_monthly.csv"))
+write_csv(W1_lysimconc_annual, here("output", "LysimeterW1_annual.csv"))
 ```
 
 #Graph your analytes by month and year in ggplot

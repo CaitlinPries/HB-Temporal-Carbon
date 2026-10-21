@@ -62,14 +62,34 @@ HBEFBiomass_by_plot <- HBEFBiomass(data_type = "internal",
                                results = "by_plot")
 
 #Summarize mean aboveground biomass by year and watershed
-HBEFBiomass_summary <- HBEFBiomass_by_plot %>%
-  group_by(year, watershed) %>%
+# HBEFBiomass_summary <- HBEFBiomass_by_plot %>%
+#   group_by(year, watershed) %>%
+#   summarize(above_L_Mg_ha_mean = mean(above_L_Mg_ha),
+#             above_L_Mg_ha_SE = std.error(above_L_Mg_ha))
+
+#Assign elevation groups: Upper >= 710 m, Middle 630 to < 710 m, Lower < 630 m
+HBEFBiomass_elev_summary <- HBEFBiomass_by_plot %>%
+  mutate(Elev_group = case_when(
+           elev_m >= 710 ~ "Upper",
+           elev_m >= 630 ~ "Middle",
+           elev_m <  630 ~ "Lower"),
+         Elev_group = factor(Elev_group, levels = c("Upper", "Middle", "Lower"))) %>%
+  group_by(year, watershed, Elev_group) %>%
   summarize(above_L_Mg_ha_mean = mean(above_L_Mg_ha),
-            above_L_Mg_ha_SE = std.error(above_L_Mg_ha))
+            above_L_Mg_ha_SE = std.error(above_L_Mg_ha),
+            n_plots = n(),
+            .groups = "drop")
 
 #Change Year to be numeric
-HBEFBiomass_summary$year <- as.numeric(HBEFBiomass_summary$year)
+HBEFBiomass_elev_summary$year <- as.numeric(HBEFBiomass_elev_summary$year)
 ```
+
+```{r save outputs}
+#Save the monthly/annual summary tables as .csv files in the project's output folder
+dir.create(here("output"), showWarnings = FALSE)
+write_csv(HBEFBiomass_elev_summary, here("output", "AGBiomass_annual.csv"))
+```
+
 
 #Graph your data by year (~5 years) in ggplot
 ```{r}

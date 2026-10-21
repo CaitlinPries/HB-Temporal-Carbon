@@ -39,7 +39,18 @@ Bring in Data Files (there are 6!)
 ```{r access data from EDI}
 options(HTTPUserAgent="EDI_CodeGen")
 
-inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/16f1fab6db79c79440fbb4c3ff2e7ed7" #paste url here
+# EDI now requires an access key. It is read from the EDI_ACCESS_KEY environment
+# variable (set in the project's .Renviron file, see README note) so the key is
+# never written into this script or pushed to GitHub.
+myEDIAccessKey <- Sys.getenv("EDI_ACCESS_KEY")
+
+# check for required access key
+if (myEDIAccessKey == ""){
+stop(paste0("A VALID EDI ACCESS KEY IS REQUIRED FOR THIS CODE TO DOWNLOAD THE NEEDED DATA \n",
+"Please set EDI_ACCESS_KEY in your .Renviron file (or myEDIAccessKey in this script) and rerun"))
+}
+
+inUrl1  <- paste0("https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/16f1fab6db79c79440fbb4c3ff2e7ed7", "?key=", myEDIAccessKey) #paste url here
 infile1 <- tempfile()
 try(download.file(inUrl1,infile1,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
 if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
@@ -47,7 +58,7 @@ if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
 dtSiteInfo <-read.csv(infile1, stringsAsFactors=F, na.strings = c("-9999.9", "-9999")) #add in NA codes here!
 unlink(infile1)
 
-inUrl2  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/50d1e45dc7c0f5769e42f6d972e86f12" 
+inUrl2  <- paste0("https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/50d1e45dc7c0f5769e42f6d972e86f12", "?key=", myEDIAccessKey) 
 infile2 <- tempfile()
 try(download.file(inUrl2,infile2,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
 if (is.na(file.size(infile2))) download.file(inUrl2,infile2,method="auto")
@@ -55,7 +66,7 @@ if (is.na(file.size(infile2))) download.file(inUrl2,infile2,method="auto")
 dtPlotLoc <-read.csv(infile2, stringsAsFactors=F, na.strings = c("-9999.9", "-9999")) #add in NA codes here!
 unlink(infile2)
 
-inUrl3  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/382acf1fdcb69da1cca6674929f5ad6b" 
+inUrl3  <- paste0("https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/382acf1fdcb69da1cca6674929f5ad6b", "?key=", myEDIAccessKey) 
 infile3 <- tempfile()
 try(download.file(inUrl3,infile3,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
 if (is.na(file.size(infile3))) download.file(inUrl3,infile3,method="auto")
@@ -63,7 +74,7 @@ if (is.na(file.size(infile3))) download.file(inUrl3,infile3,method="auto")
 dtMetalperm2 <-read.csv(infile3, stringsAsFactors=F, na.strings = c("-9999.99", "-8888.88")) #add in NA codes here!
 unlink(infile3)
 
-inUrl4  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/0ff5d3e2ca711915795b03770f6e9608" 
+inUrl4  <- paste0("https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/0ff5d3e2ca711915795b03770f6e9608", "?key=", myEDIAccessKey) 
 infile4 <- tempfile()
 try(download.file(inUrl4,infile4,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
 if (is.na(file.size(infile4))) download.file(inUrl4,infile4,method="auto")
@@ -71,7 +82,7 @@ if (is.na(file.size(infile4))) download.file(inUrl4,infile4,method="auto")
 dtMetalperkg <-read.csv(infile4, stringsAsFactors=F, na.strings = c("-9999.9", "-8888.8")) #add in NA codes here!
 unlink(infile4)
 
-inUrl5  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/775e243b7a2b67c0047498533bf5b9d1" 
+inUrl5  <- paste0("https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/775e243b7a2b67c0047498533bf5b9d1", "?key=", myEDIAccessKey) 
 infile5 <- tempfile()
 try(download.file(inUrl5,infile5,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
 if (is.na(file.size(infile5))) download.file(inUrl5,infile5,method="auto")
@@ -79,7 +90,7 @@ if (is.na(file.size(infile5))) download.file(inUrl5,infile5,method="auto")
 dtMass <-read.csv(infile5, stringsAsFactors=F, na.strings = c("-9999.9","-9999.99","-8888.8")) #add in NA codes here!
 unlink(infile5)
 
-inUrl6  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/f25fc11474e2b787cecc67949ecd0028" 
+inUrl6  <- paste0("https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/172/4/f25fc11474e2b787cecc67949ecd0028", "?key=", myEDIAccessKey) 
 infile6 <- tempfile()
 try(download.file(inUrl6,infile6,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
 if (is.na(file.size(infile6))) download.file(inUrl6,infile6,method="auto")
@@ -151,6 +162,12 @@ W6_FF <- finalFF %>%
 
 #save these?? Right now no, and there is no data folder in the project
 #write.csv(data_name, here("data", "data_name.csv"))
+```
+
+```{r save outputs}
+#Save the monthly/annual summary tables as .csv files in the project's output folder
+dir.create(here("output"), showWarnings = FALSE)
+write_csv(W6_FF, here("output", "ForestFloorW6_annual.csv"))
 ```
 
 #Graph your analytes by month and year in ggplot

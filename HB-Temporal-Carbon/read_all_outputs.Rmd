@@ -1,0 +1,318 @@
+---
+title: "HB Temporal C Synthesis: Read in all monthly and annual output files"
+author: "Caitlin Hicks Pries"
+date: "`r Sys.Date()`"
+output: html_document
+---
+#Purpose
+Reads every monthly and annual summary table that the project's .Rmd scripts save to the "output" folder (see the "save outputs" chunk in each .Rmd).
+
+Result objects:
+
+* `file_index`: one row per csv (timestep, time column, size)
+* `monthly_tables`: named list of data frames (monthly summaries)
+* `annual_tables`: named list of data frames (annual summaries)
+* `all_tables`: both combined (names = file names without ".csv")
+
+Example use: `annual_tables$AirTemperature_annual` or `monthly_tables[["Snow_monthly_by_site"]]`
+
+#Setup
+```{r setup, include=FALSE}
+rm(list = ls()) #clear R environment
+
+# Check for and install required packages and load libraries
+for (package in c('here', 'patchwork', 'mgcv', 'nlme', 'segmented', 'tidyverse')) {    #can add more packages to this vector
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package)
+    library(package, character.only=T)
+  }
+}
+
+knitr::opts_knit$set(root.dir = here())
+```
+
+#Files the Rmd scripts are expected to produce
+```{r expected files}
+out_dir <- here("output")
+
+expected_files <- c(
+  "AGBiomass_annual.csv",
+  "AirTemperature_monthly.csv",
+  "AirTemperature_annual.csv",
+  "AtmPrecipChem_annual_wateryear.csv",
+  "AtmPrecipChem_annual_calendaryear.csv",
+  "AtmPrecipChem_monthly.csv",
+  "Litterfall_annual.csv",
+  "LysimeterW1_monthly.csv",
+  "LysimeterW1_annual.csv",
+  "LysimeterW6_monthly.csv",
+  "LysimeterW6_annual.csv",
+  "Snow_monthly.csv",
+  "Snow_annual.csv",
+  "SoilMicrobialBiomass_annual.csv",
+  "StreamChemW6_VWM_monthly.csv",
+  "StreamChemW6_VWM_annual.csv",
+  "SoilGasFlux_annual.csv",
+  "SoilGasFlux_monthly.csv"
+)
+```
+
+#Find the csv files
+```{r find csv files}
+csv_files <- list.files(out_dir, pattern = "\\.csv$", full.names = TRUE)
+
+if (length(csv_files) == 0) {
+  stop("No .csv files found in ", out_dir,
+       ". Run the .Rmd scripts first so they write their outputs.")
+}
+
+# Tell the user which scripts have not been run yet (or produced nothing)
+missing_files <- setdiff(expected_files, basename(csv_files))
+if (length(missing_files) > 0) {
+  message("Note: ", length(missing_files), " expected file(s) not found in output/:\n  ",
+          paste(missing_files, collapse = "\n  "))
+}
+
+# Files in output/ that this script did not expect (e.g. added by hand later)
+extra_files <- setdiff(basename(csv_files), expected_files)
+if (length(extra_files) > 0) {
+  message("Note: also reading ", length(extra_files), " file(s) not on the expected list:\n  ",
+          paste(extra_files, collapse = "\n  "))
+}
+```
+
+#Read them all in
+guess_max = Inf so column types are decided from the whole file, not just the first 1000 rows (several tables have long runs of NA at the start).
+```{r read csv files}
+names(csv_files) <- tools::file_path_sans_ext(basename(csv_files))
+
+all_tables <- map(csv_files, read_csv, guess_max = Inf, show_col_types = FALSE)
+```
+
+#Index of what was read
+```{r file index}
+time_cols <- c("month", "year", "waterYr")  # time column names used across scripts
+
+file_index <- tibble(
+  table    = names(all_tables),
+  file     = basename(csv_files),
+  timestep = case_when(
+    str_detect(table, "_monthly") ~ "monthly",
+    str_detect(table, "_annual")  ~ "annual",
+    TRUE                          ~ NA_character_
+  ),
+  time_col = map_chr(all_tables, function(df) {
+    hit <- intersect(time_cols, names(df))
+    if (length(hit) > 0) hit[1] else NA_character_
+  }),
+  n_rows   = map_int(all_tables, nrow),
+  n_cols   = map_int(all_tables, ncol)
+) %>%
+  arrange(timestep, table)
+
+if (any(is.na(file_index$timestep))) {
+  warning("Could not tell monthly from annual for: ",
+          paste(file_index$table[is.na(file_index$timestep)], collapse = ", "))
+}
+
+print(file_index, n = Inf)
+```
+
+#Split into monthly and annual lists
+```{r split monthly and annual}
+monthly_tables <- all_tables[file_index$table[file_index$timestep %in% "monthly"]]
+annual_tables  <- all_tables[file_index$table[file_index$timestep %in% "annual"]]
+```
+
+##Notes
+* read_csv() returns text columns as character, so factor columns saved by the scripts (e.g. ordered soil Horizon in SoilMicrobialBiomass_annual) come back as character. Re-apply factor levels if you need the original ordering.
+* Date columns (month, year in the monthly/annual tables built with floor_date()) are read back as Date; year/Year/YEAR/waterYr in other tables are numeric. waterYr is a water year, not a calendar year.
+
+#For annual tables, harmonize the elevations and yearly timesteps
+```{r}
+#View(annual_tables$AirTemperature_annual)
+
+annual_tables$AirTemperature_annual <- annual_tables$AirTemperature_annual %>%
+  mutate(
+    station     = str_extract(STA, "^[^\n]+"),               # HQ, STA1, STA23, ...
+    elevation_m = as.numeric(str_extract(STA, "\\d+(?= m$)")),  # 255, 478, 668, ...
+    Elev_group  = case_when(elevation_m >= 710 ~ "Upper",
+                            elevation_m >= 630 ~ "Middle",
+                            elevation_m <  630 ~ "Lower"),
+    Elev_group  = factor(Elev_group, levels = c("Upper", "Middle", "Lower"))
+  )
+
+#str(annual_tables$AGBiomass_annual) #groups assigned in input code, check for correct elevation cutoffs
+
+annual_tables$AGBiomass_annual <- annual_tables$AGBiomass_annual %>% 
+  mutate( year = as.Date(paste0(year, "-01-01")))
+
+#str(annual_tables$SoilMicrobialBiomass_annual)
+annual_tables$SoilMicrobialBiomass_annual <- annual_tables$SoilMicrobialBiomass_annual %>% 
+  mutate( Elev_group  = case_when(elev >= 710 ~ "Upper",
+                            elev >= 630 ~ "Middle",
+                            elev <  630 ~ "Lower"),
+    Elev_group  = factor(Elev_group, levels = c("Upper", "Middle", "Lower")),
+    year = as.Date(paste0(year, "-01-01"))
+  )
+  
+#str(annual_tables$Litterfall_annual) #groups assigned before uploaded to EDI, so need to look into how to get actual elevations
+elev_map <- c(Low = "Lower", Mid = "Middle", High = "Upper", Upper = "Upper")
+annual_tables$Litterfall_annual <- annual_tables$Litterfall_annual %>%
+  mutate(year = as.Date(paste0(year, "-01-01")),
+         Elev_group = factor(elev_map[elev], levels = c("Upper", "Middle", "Lower")))
+
+#str(annual_tables$SoilGasFlux_annual) #groups assigned before uploaded to EDI, so need to look into how to get actual elevations
+elev_map <- c(low = "Lower", mid = "Middle", high = "Upper", "spruce/fir" = "Upper")
+annual_tables$Litterfall_annual <- annual_tables$Litterfall_annual %>%
+  mutate(Elev_group = factor(elev_map[elev], levels = c("Upper", "Middle", "Lower")))
+
+#str(annual_tables$Snow_annual) #based elevation on core stations (Site) in data frame with known elevations
+snow_elev <- tribble(
+  ~Site,   ~elevation_m, ~elev_source,
+  "STAHQ", 255,          "Snow script table",
+  "STA1",  478,          "Assumed from air temperature station",
+  "STA2",  560,          "Snow script table",
+  "STA19", 600,          "Snow script table",
+  "STA6",  732,          "Assumed from air temperature station",
+  "STA14", 732,          "Assumed from air temperature station",
+  "STA9",  778,          "Snow script table",
+  "STA17", 898,          "Snow script table"
+)
+
+annual_tables$Snow_annual <- annual_tables$Snow_annual %>%
+  left_join(snow_elev, by = "Site") %>%
+  mutate(Elev_group = case_when(elevation_m >= 710 ~ "Upper",
+                                elevation_m >= 630 ~ "Middle",
+                                elevation_m <  630 ~ "Lower"),
+         Elev_group = factor(Elev_group, levels = c("Upper", "Middle", "Lower")))
+
+```
+
+#Combine Lysimeter dataframes together
+```{r}
+annual_tables$Lysimeter_annual <- bind_rows(
+  annual_tables$LysimeterW1_annual %>% mutate(Site = "W1"),
+  annual_tables$LysimeterW6_annual %>% mutate(Site = "W6")) %>%
+  mutate(Site = factor(Site, levels = c("W1", "W6"))) %>%
+  dplyr::select(year, Site, everything(), -WS)   # Site replaces the numeric WS column
+
+annual_tables$Lysimeter_annual %>% count(Site)
+
+#str(annual_tables$Lysimeter_annual)
+```
+##Temp fixes of issues in datasets
+```{r}
+annual_tables$AtmPrecipChem_annual_calendaryear <- annual_tables$AtmPrecipChem_annual_calendaryear %>% 
+  mutate(DOC_mean = if_else(DOC_mean < 0.0001, NA, DOC_mean))
+
+annual_tables$StreamChemW6_VWM_annual <- annual_tables$StreamChemW6_VWM_annual %>% 
+  mutate(DOC_vwm = if_else(DOC_vwm < 0.0001, NA, DOC_vwm),
+         DIC_vwm = if_else(DIC_vwm < 0.0001, NA, DIC_vwm))
+```
+
+
+
+
+#Abiotic trends
+```{r graph settings}
+start_date <- as.Date("1980-01-01")
+end_date   <- as.Date("2025-01-01")
+x_scale <- scale_x_date(limits = c(start_date, end_date),
+                           date_breaks = "5 years", date_labels = "%Y",
+                           ) #expand = c(0, 0)
+```
+
+##pH
+```{r}
+
+#Atmospheric precipitation, by rain gauge (calendar year)
+atm_plot <- annual_tables$AtmPrecipChem_annual_calendaryear %>%
+  filter(year >= start_date, !is.na(pH_mean)) %>%
+  select(year, site, pH = pH_mean) %>%
+  ggplot(aes(x = year, y = pH, shape = site)) +
+  geom_point(size = 2, alpha = 0.8, color="black") +
+  geom_smooth(aes(group = 1), color = "black",
+              method = "lm", se = TRUE, linewidth = 0.8) +
+  x_scale +
+  labs(x = "Year", y = "Precipitation pH",
+       color = "Rain gauge", shape = "Rain gauge",
+       title = "Precipitation pH 1980 to present") +
+  theme_classic()
+
+atm_plot 
+
+#Soil
+soil_plot <- annual_tables$SoilMicrobialBiomass_annual %>%
+ filter(year >= start_date, !is.na(pH_mean)) %>%
+  group_by(year, Elev_group, Hor) %>%
+  summarise(pH = mean(pH_mean), .groups = "drop") %>%
+  ggplot(aes(x = year, y = pH, shape = Hor, color = Elev_group)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(aes(linetype = Hor, color=Elev_group, group = interaction(Elev_group, Hor)),
+              method = "lm", se = FALSE, linewidth = 0.8) +
+  scale_color_manual(values = c(Upper = "orange", Lower = "red")) +
+  x_scale +
+  labs(x = "Year", y = "Soil pH",
+       color = "Elevation", shape = "Horizon Type", linetype = "Elevation",
+       title = "Soil pH by horizon type and elevation, 1980 to present") +
+  theme_classic()
+
+soil_plot #This is messy, leave out for now
+
+#Soil solution
+
+lys_plot <- annual_tables$Lysimeter_annual %>%
+  filter(year >= start_date, !is.na(pH_mean)) %>%
+  group_by(year, Site, Horizon_type) %>%
+  summarise(pH = mean(pH_mean), .groups = "drop") %>%
+  ggplot(aes(x = year, y = pH, shape = Horizon_type, color = Site)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(aes(linetype = Horizon_type, group = interaction(Site, Horizon_type)),
+              method = "lm", se = FALSE, linewidth = 0.8) +
+  scale_color_manual(values = c(W6 = "#8c510a", W1 = "#01665e")) +
+  x_scale +
+  labs(x = "Year", y = "Soil solution pH",
+       color = "Watershed", shape = "Horizon Type", linetype = "Horizon Type",
+       title = "Soil solution pH by horizon type, 1980 to present") +
+  theme_classic()
+
+lys_plot
+
+
+stream_plot <- annual_tables$Lysimeter_annual %>%
+  filter(year >= start_date, !is.na(pH_mean)) %>%
+  ggplot(aes(x = year, y = pH_mean, color = Site)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(aes(group = Site), method = "lm", se = FALSE, linewidth = 0.8) +
+  scale_color_manual(values = c(W6 = "#8c510a", W1 = "#01665e")) +
+  x_scale +
+  labs(x = "Year", y = "Stream pH (volume-weighted)",
+       color = "Watershed",
+       title = "Stream pH by watershed, 1980 to present") +
+  theme_classic()
+
+stream_plot
+
+pH_all <- atm_plot / lys_plot / stream_plot + plot_layout(guides = "collect")
+
+pH_all
+
+dir.create(here("Graphs"), showWarnings = FALSE)
+
+plots  <- list(atm_plot, lys_plot, stream_plot, pH_all)
+names  <- c("pH_trend_precipitation", "pH_trend_lysimeter", "pH_trend_stream_W6", "pH_trend_all")
+heights <- c(5, 5, 5, 15)
+
+for (i in seq_along(plots)) {
+  ggsave(
+    filename = here::here("Graphs", paste0(names[i], ".png")),
+    plot = plots[[i]],
+    width = 10,
+    height = heights[i],
+    dpi = 300
+  )
+}
+```
+#Analyze slopes
+

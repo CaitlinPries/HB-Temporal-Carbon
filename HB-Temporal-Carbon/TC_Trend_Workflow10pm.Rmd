@@ -1,0 +1,330 @@
+---
+title: "HB Temporal C Synthesis: General trend workflow (linear vs segmented vs non-linear)"
+author: "Caitlin Hicks Pries"
+date: "`r Sys.Date()`"
+output: html_document
+---
+#Purpose
+A reusable workflow for any annual table with a year column, one or more numeric variables, and optional grouping columns (site, watershed, elevation group, horizon, etc.).
+
+For every variable x group (a "series") it fits three models, **all with AR(1) errors** (generalized least squares, `nlme::gls`), so year-to-year autocorrelation is accounted for in the slopes, p-values and AIC:
+
+1. **Linear trend:** slope, standard error, p-value, standardized slope, R2, and the estimated AR(1) autocorrelation (`ar1_phi`)
+2. **Segmented regression** (one breakpoint, found by grid search, then refit with AR(1) errors): breakpoint year, slope before and after, p-values, and a Davies test (`segmented` package) for whether a breakpoint exists
+3. **Natural spline** (smooth non-linear curve, `spline_df = 3` by default) as the non-linear alternative, with a likelihood-ratio test of curvature against the straight line
+4. **Model comparison by AIC:** the linear model is kept unless an alternative has an AIC at least 2 lower
+
+To use it on a new variable or dataset, only change the arguments of `analyze_trends()` in the examples below. The functions are defined once in the "Functions" chunk.
+
+#Setup
+```{r setup, include=FALSE}
+#rm(list = ls()) #clear R environment
+
+# Check for and install required packages and load libraries
+for (package in c('tidyverse', 'here', 'nlme', 'segmented')) {    #can add more packages to this vector
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package)
+    library(package, character.only=T)
+  }
+}
+
+knitr::opts_knit$set(root.dir = here())
+```
+
+#Functions
+Run this chunk once; nothing in it needs to be edited.
+
+* `analyze_trends()`: returns one row per variable x group with all the statistics below
+* `plot_trend_fits()`: one panel per group showing the data, the linear fit (dashed black), a natural spline curve (red), and the breakpoint (dotted blue) where the segmented model is best
+
+**Standardized slope:** `lin_std_slope` is the slope in standard-deviation units of both variable and year (slope x sd(year) / sd(variable)), the same as `lm(scale(y) ~ scale(year))`. It lets you compare variables with different units, but because it depends on how long the record is, compare it across series of different lengths with care. `lin_slope_sd_per_yr` (slope / sd(variable)) is the change in standard deviations per year and is easier to compare across records of different lengths.
+```{r functions}
+#Convert a Date (floor date) or numeric year to a numeric year
+to_year <- function(x) {
+  if (inherits(x, c("Date", "POSIXct"))) as.numeric(format(x, "%Y")) else as.numeric(x)
+}
+
+#Build a text label for each series from the grouping columns
+make_series <- function(d, group_cols) {
+  if (length(group_cols) == 0) return(rep("all", nrow(d)))
+  do.call(paste, c(as.list(d[group_cols]), sep = " | "))
+}
+
+#Reshape to long format, apply the time window, and make sure there is one value per series per year
+prep_long <- function(data, value_cols, group_cols, time_col = "year",
+                      start_year = NULL, end_year = NULL) {
+  stopifnot(all(c(value_cols, group_cols, time_col) %in% names(data)))
+
+  out <- data %>%
+    mutate(yr = to_year(.data[[time_col]])) %>%
+    pivot_longer(all_of(value_cols), names_to = "variable", values_to = "value") %>%
+    filter(!is.na(value), !is.na(yr))
+
+  if (!is.null(start_year)) out <- filter(out, yr >= start_year)
+  if (!is.null(end_year))   out <- filter(out, yr <= end_year)
+
+  #more than one row per series per year (e.g. several horizons in one horizon type) gets averaged
+  dupes <- out %>%
+    group_by(across(all_of(c(group_cols, "variable", "yr")))) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    filter(n > 1)
+  if (nrow(dupes) > 0) {
+    message("Note: ", nrow(dupes), " series-year combinations had more than one row and were averaged. ",
+            "If that is not what you want, add the missing column (e.g. Horizon) to group_cols.")
+  }
+
+  out %>%
+    group_by(across(all_of(c(group_cols, "variable", "yr")))) %>%
+    summarise(value = mean(value), .groups = "drop")
+}
+
+#Fit a model with AR(1) errors (generalized least squares). Returns NULL if it can't be fit.
+#"ML" is used for AIC and model comparison; "REML" gives better slope standard errors.
+gls_ar1 <- function(formula, data, method = "ML") {
+  tryCatch(
+    nlme::gls(formula, data = data,
+              correlation = nlme::corAR1(form = ~ yr), method = method),
+    error = function(e) NULL)
+}
+
+#Fit all models for ONE series (d has columns yr and value). All models have AR(1) errors.
+fit_one <- function(d, min_years = 10, min_seg = 5, spline_df = 3) {
+  d <- d %>% arrange(yr)
+  n <- nrow(d)
+
+  #template row: every column exists even if a model can't be fit
+  res <- tibble(
+    n_years = n, first_year = min(d$yr), last_year = max(d$yr),
+    mean_value = mean(d$value), sd_value = sd(d$value),
+    ar1_phi = NA_real_,
+    lin_slope = NA_real_, lin_se = NA_real_, lin_p = NA_real_,
+    lin_std_slope = NA_real_, lin_slope_sd_per_yr = NA_real_, lin_r2 = NA_real_,
+    seg_breakpoint = NA_real_, seg_slope_before = NA_real_, seg_slope_before_p = NA_real_,
+    seg_slope_after = NA_real_, seg_slope_after_p = NA_real_,
+    seg_std_before = NA_real_, seg_std_after = NA_real_, seg_change_p_naive = NA_real_,
+    seg_davies_p = NA_real_,
+    spline_p_curvature = NA_real_,
+    AIC_linear = NA_real_, AIC_segmented = NA_real_, AIC_spline = NA_real_,
+    best_model = NA_character_, delta_AIC_vs_linear = NA_real_,
+    note = NA_character_
+  )
+
+  if (n < min_years || isTRUE(sd(d$value) == 0)) return(res)
+
+  sx <- sd(d$yr); sy <- sd(d$value)
+
+  #---- 1. Linear with AR(1) errors ----
+  lin_ml   <- gls_ar1(value ~ yr, d, "ML")
+  lin_reml <- gls_ar1(value ~ yr, d, "REML")
+  if (is.null(lin_ml) || is.null(lin_reml)) {
+    res$note <- "linear AR(1) model did not fit"
+    return(res)
+  }
+  tt <- summary(lin_reml)$tTable
+  res$ar1_phi             <- as.numeric(coef(lin_reml$modelStruct$corStruct, unconstrained = FALSE))
+  res$lin_slope           <- tt["yr", "Value"]
+  res$lin_se              <- tt["yr", "Std.Error"]
+  res$lin_p               <- tt["yr", "p-value"]
+  res$lin_std_slope       <- tt["yr", "Value"] * sx / sy
+  res$lin_slope_sd_per_yr <- tt["yr", "Value"] / sy
+  res$lin_r2              <- cor(as.numeric(fitted(lin_reml)), d$value)^2   #squared correlation of fitted and observed
+  res$AIC_linear          <- AIC(lin_ml)
+
+  #---- 2. Segmented (one breakpoint) with AR(1) errors ----
+  #The breakpoint is chosen by a grid search over observed years (ordinary least squares,
+  #at least min_seg points on each side), then the model is refit with AR(1) errors.
+  if (n >= 2 * min_seg + 1) {
+    #Davies test: is there evidence for a breakpoint anywhere in the record? It allows for the
+    #breakpoint having been searched for. It uses ordinary least squares, so it assumes independent errors.
+    #do.call() puts the data into the call, which segmented needs when d is created inside a function.
+    res$seg_davies_p <- tryCatch(
+      segmented::davies.test(do.call("lm", list(formula = value ~ yr, data = d)),
+                             seg.Z = ~ yr)$p.value,
+      error = function(e) NA_real_)
+
+    cand <- d$yr[min_seg:(n - min_seg)]
+    rss  <- vapply(cand, function(bp) {
+      sum(resid(lm(value ~ yr + pmax(yr - bp, 0), data = d))^2)
+    }, numeric(1))
+    bp <- cand[which.min(rss)]
+    d$hinge <- pmax(d$yr - bp, 0)
+
+    seg_ml   <- gls_ar1(value ~ yr + hinge, d, "ML")
+    seg_reml <- gls_ar1(value ~ yr + hinge, d, "REML")
+
+    if (!is.null(seg_ml) && !is.null(seg_reml)) {
+      b   <- coef(seg_reml); V <- vcov(seg_reml); tts <- summary(seg_reml)$tTable
+      s_after  <- unname(b["yr"] + b["hinge"])
+      se_after <- sqrt(V["yr", "yr"] + V["hinge", "hinge"] + 2 * V["yr", "hinge"])
+      res$seg_breakpoint     <- bp
+      res$seg_slope_before   <- unname(b["yr"])
+      res$seg_slope_before_p <- tts["yr", "p-value"]
+      res$seg_slope_after    <- s_after
+      res$seg_slope_after_p  <- 2 * pt(-abs(s_after / se_after), df = n - 3)
+      res$seg_std_before     <- unname(b["yr"]) * sx / sy
+      res$seg_std_after      <- s_after * sx / sy
+      res$seg_change_p_naive <- tts["hinge", "p-value"]   #optimistic, see notes
+      res$AIC_segmented      <- AIC(seg_ml) + 2           #+2 for the estimated breakpoint
+    } else {
+      res$note <- paste(na.omit(c(res$note, "segmented AR(1) model did not fit")), collapse = "; ")
+    }
+  }
+
+  #---- 3. Natural spline (smooth non-linear curve, fixed df) with AR(1) errors ----
+  spl_ml <- gls_ar1(value ~ splines::ns(yr, df = spline_df), d, "ML")
+  if (!is.null(spl_ml)) {
+    res$AIC_spline <- AIC(spl_ml)
+    #likelihood-ratio test: is the curve better than a straight line? (linear is nested in the spline)
+    res$spline_p_curvature <- tryCatch(anova(lin_ml, spl_ml)[["p-value"]][2],
+                                       error = function(e) NA_real_)
+  } else {
+    res$note <- paste(na.omit(c(res$note, "spline AR(1) model did not fit")), collapse = "; ")
+  }
+
+  #---- 4. Choose the model: linear unless an alternative is >= 2 AIC units better ----
+  alt <- c(segmented = res$AIC_segmented, spline = res$AIC_spline)
+  alt <- alt[!is.na(alt)]
+  if (length(alt) > 0) {
+    res$delta_AIC_vs_linear <- res$AIC_linear - min(alt)   #positive = alternative fits better
+    res$best_model <- if (res$delta_AIC_vs_linear >= 2) names(which.min(alt)) else "linear"
+  } else {
+    res$best_model <- "linear"
+  }
+  res
+}
+
+#Main function: all variables x all groups
+analyze_trends <- function(data, value_cols, group_cols = character(0), time_col = "year",
+                           start_year = NULL, end_year = NULL, min_years = 10, min_seg = 5, spline_df = 3) {
+  long <- prep_long(data, value_cols, group_cols, time_col, start_year, end_year)
+
+  res <- long %>%
+    group_by(across(all_of(c("variable", group_cols)))) %>%
+    group_modify(~ fit_one(.x, min_years, min_seg, spline_df)) %>%
+    ungroup()
+
+  if (all(is.na(res$lin_p))) stop("No series had at least ", min_years, " years of data.")
+
+  res$series <- make_series(res, group_cols)
+
+  res %>%
+    group_by(variable) %>%
+    mutate(lin_p_adj = p.adjust(lin_p, method = "BH")) %>%   #false discovery rate across series within a variable
+    ungroup() %>%
+    mutate(lin_sig = case_when(is.na(lin_p) ~ NA_character_,
+                               lin_p < 0.001 ~ "***",
+                               lin_p < 0.01  ~ "**",
+                               lin_p < 0.05  ~ "*",
+                               TRUE          ~ "ns")) %>%
+    relocate(variable, series, all_of(group_cols))
+}
+
+#Plot one variable: one panel per series
+plot_trend_fits <- function(data, value_col, group_cols = character(0), time_col = "year",
+                            results = NULL, start_year = NULL, end_year = NULL, min_years = 10) {
+  d <- prep_long(data, value_col, group_cols, time_col, start_year, end_year)
+  d$series <- make_series(d, group_cols)
+  d <- d %>% group_by(series) %>% filter(n() >= min_years) %>% ungroup()
+
+  p <- ggplot(d, aes(x = yr, y = value)) +
+    geom_point(size = 1.8, alpha = 0.8) +
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE,
+                color = "black", linetype = "dashed", linewidth = 0.7) +
+    geom_smooth(method = "lm", formula = y ~ splines::ns(x, 3), se = FALSE,
+                color = "firebrick", linewidth = 0.7) +
+    facet_wrap(~ series, scales = "free_y") +
+    labs(x = "Year", y = value_col,
+         title = paste(value_col, "- linear (dashed) vs spline (red); dotted line = breakpoint")) +
+    theme_classic()
+
+  if (!is.null(results)) {
+    bp <- results %>% filter(.data$variable == value_col, .data$best_model == "segmented")
+    if (nrow(bp) > 0) {
+      p <- p + geom_vline(data = bp, aes(xintercept = seg_breakpoint),
+                          linetype = "dotted", color = "steelblue", linewidth = 0.8)
+    }
+  }
+  p
+}
+```
+
+#Example: pH and nitrate, 1980 to present
+`value_cols` can be any numeric columns in the table, and `group_cols` can be any columns that define a series (site, watershed, elevation group, horizon). Use `character(0)` for a table with no groups (stream).
+
+This section assumes the `annual_tables` list from `read_all_outputs` is in your environment, including the combined `Lysimeter_annual` table with the Site factor. If `year` is not a Date or number, convert it first.
+```{r examples}
+start_year <- 1980
+
+#Precipitation, one series, could be multiple per rain gauge
+atm_trends <- analyze_trends(
+  annual_tables$AtmPrecipChem_annual_calendaryear,
+  value_cols = c("pH_mean", "DOC_mean"),
+  start_year = start_year) %>%
+  mutate(dataset = "Precipitation", .before = 1) #label
+
+#Soil solution, one series per watershed x horizon type
+#(horizons within a type are averaged; use group_cols = c("Site", "Horizon") to keep them separate)
+lys_trends <- analyze_trends(
+  annual_tables$Lysimeter_annual,
+  value_cols = c("pH_mean", "DOC_mean"),
+  group_cols = c("Site", "Horizon_type"),
+  start_year = start_year) %>%
+  mutate(dataset = "Soil solution", .before = 1)
+
+#Stream W6, a single series
+stream_trends <- analyze_trends(
+  annual_tables$StreamChemW6_VWM_annual,
+  value_cols = c("pH_vwm", "NO3_vwm"),
+  group_cols = character(0),
+  start_year = start_year) %>%
+  mutate(dataset = "Stream W6", .before = 1)
+
+trend_results <- bind_rows(atm_trends, lys_trends, stream_trends)
+
+#Compact view: linear trend and which model fits best
+trend_results %>%
+  select(dataset, variable, series, n_years, first_year, last_year,
+         lin_slope, lin_std_slope, lin_p, lin_p_adj, lin_sig,
+         best_model, delta_AIC_vs_linear, seg_breakpoint, seg_slope_before, seg_slope_after)
+```
+
+#Template for any other variable or grouping
+Copy and change the four arguments. For elevation groups, put the elevation column in `group_cols` (for example `group_cols = c("site", "Elev_group")`).
+```{r template, eval=FALSE}
+my_trends <- analyze_trends(
+  annual_tables$YOUR_TABLE,                 #any annual table
+  value_cols = c("variable_1", "variable_2"),   #numeric columns to analyze
+  group_cols = c("site", "Elev_group"),     #columns that define a series (or character(0))
+  time_col   = "year",                      #Date (floor date) or numeric year column
+  start_year = 1980,                        #optional time window
+  min_years  = 10                           #series with fewer years are skipped
+)
+```
+
+#Graph the fits
+Check the fits visually before trusting the numbers.
+```{r graph fits, fig.width=10, fig.height=6}
+plot_trend_fits(annual_tables$AtmPrecipChem_annual_calendaryear, "DOC_mean",
+                results = atm_trends, start_year = start_year)
+
+plot_trend_fits(annual_tables$Lysimeter_annual, "pH_mean", c("Site", "Horizon_type"),
+                results = lys_trends, start_year = start_year)
+
+plot_trend_fits(annual_tables$StreamChemW6_VWM_annual, "pH_vwm",
+                results = stream_trends, start_year = start_year)
+```
+
+#Save the results
+```{r save results}
+dir.create(here("Trend_results"), showWarnings = FALSE)
+write_csv(trend_results, here("Trend_results", "trend_results.csv"))
+```
+
+#Notes on interpreting the results
+* **Autocorrelation is built in.** All models have AR(1) errors, so `lin_p` and the AIC values account for year-to-year dependence. `ar1_phi` is the estimated lag-1 autocorrelation. It is poorly estimated and biased toward zero in short series (under about 20 years), so treat p-values as a guide. If a model cannot be fit, the `note` column says which one.
+* **lin_p_adj** corrects for testing many series (Benjamini-Hochberg false discovery rate, within each variable). `lin_sig` is based on the uncorrected p, so check `lin_p_adj` too.
+* **The segmented p-values are still optimistic** because the breakpoint was chosen to fit the data best (AR(1) errors reduce but do not remove this; in simulations with no true breakpoint, about 20% of autocorrelated series still showed one by the AIC rule). `seg_davies_p` is the better test of whether a breakpoint exists, because the Davies test allows for the search, but it assumes independent errors, so it is still too liberal for autocorrelated series. Look for agreement: a breakpoint is most believable when `best_model` is segmented **and** `seg_davies_p` is small. `seg_change_p_naive` (the test of a change in slope) ignores that, so use `best_model` and `delta_AIC_vs_linear` (which already counts the breakpoint as an extra parameter) to decide if a breakpoint is supported.
+* **delta_AIC_vs_linear:** positive means an alternative fits better than the line, and 2 or more is used as the cutoff. Differences of 2-4 are weak evidence; above about 10 is strong.
+* **A breakpoint at the edge of the record** (within a few years of the first or last year) is poorly constrained. `min_seg` sets the minimum number of years on each side (default 5).
+* **Spline:** `spline_p_curvature` tests whether the curve is better than a straight line. The spline can describe curvature but, unlike the segmented model, doesn't give a single change point. Change `spline_df` in `analyze_trends()` for a stiffer (2) or more flexible (4) curve; keep it at 3 or below for series under 25 years.
+* **Short records:** with 10-15 years the alternative models can overfit and the AR(1) fit can fail to converge, so be cautious about `best_model` for short series.

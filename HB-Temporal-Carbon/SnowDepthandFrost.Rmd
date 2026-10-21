@@ -32,7 +32,18 @@ Note where you need to add in NA codes that you described above for your dataset
 Additional notes here: I used the R code that was produced for this dataset in the EDI portal. It follows the same workflow, assigning NAs and ensureing that the date format is correct when it brings the dataset in, storing it in a dataframe called dt1. There are additional summary statistics with this workflow.
 
 ```{r access data from EDI}
-inUrl1  <- "https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/27/21/e9dc11e1518fb5820e614dc512a2517d" 
+# EDI now requires an access key. It is read from the EDI_ACCESS_KEY environment
+# variable (set in the project's .Renviron file, see README note) so the key is
+# never written into this script or pushed to GitHub.
+myEDIAccessKey <- Sys.getenv("EDI_ACCESS_KEY")
+
+# check for required access key
+if (myEDIAccessKey == ""){
+stop(paste0("A VALID EDI ACCESS KEY IS REQUIRED FOR THIS CODE TO DOWNLOAD THE NEEDED DATA \n",
+"Please set EDI_ACCESS_KEY in your .Renviron file (or myEDIAccessKey in this script) and rerun"))
+}
+
+inUrl1  <- paste0("https://pasta.lternet.edu/package/data/eml/knb-lter-hbr/27/21/e9dc11e1518fb5820e614dc512a2517d", "?key=", myEDIAccessKey) 
 infile1 <- tempfile()
 try(download.file(inUrl1,infile1,method="curl",extra=paste0(' -A "',getOption("HTTPUserAgent"),'"')))
 if (is.na(file.size(infile1))) download.file(inUrl1,infile1,method="auto")
@@ -167,65 +178,65 @@ STAHQ	        ~255	Valley floor / headquarters
 # Frost depth and frost occurrence are summarized from 1970 onward because
 # frost measurements prior to 1970 were sporadic and should be interpreted with caution.
 
-snow_longterm <- snowFrost_data %>%
-  filter(Site %in% c("STA2", "STA9", "STA17", "STA19", "STAHQ")) %>%
-  mutate(
-    Site = case_when( #giving more context here to the site codes
-      Site == "STA2"  ~ "STA2: South-facing\nMid Elevation (560 m)",
-      Site == "STA9"  ~ "STA9: South-facing\nHigh Elevation (778 m)",
-      Site == "STA17" ~ "STA17: North-facing\nHigh Elevation (893 m)",
-      Site == "STA19" ~ "STA19: North-facing\nMid Elevation (600 m)",
-      Site == "STAHQ" ~ "STAHQ: Headquarters\nLow Elevation (252 m)"
-    )
-  )
+# snow_longterm <- snowFrost_data %>%
+#   filter(Site %in% c("STA2", "STA9", "STA17", "STA19", "STAHQ")) %>%
+#   mutate(
+#     Site = case_when( #giving more context here to the site codes
+#       Site == "STA2"  ~ "STA2: South-facing\nMid Elevation (560 m)",
+#       Site == "STA9"  ~ "STA9: South-facing\nHigh Elevation (778 m)",
+#       Site == "STA17" ~ "STA17: North-facing\nHigh Elevation (893 m)",
+#       Site == "STA19" ~ "STA19: North-facing\nMid Elevation (600 m)",
+#       Site == "STAHQ" ~ "STAHQ: Headquarters\nLow Elevation (252 m)"
+#     )
+#   )
+# 
+# snow_slopes <- snowFrost_data %>%
+#   filter(Site %in% c("STA2", "STA9", "STA17", "STA19")) %>%
+#   mutate(
+#     Site = case_when(  #giving more context here to the site codes
+#       Site == "STA2"  ~ "STA2: South-facing\nMid Elevation (560 m)",
+#       Site == "STA9"  ~ "STA9: South-facing\nHigh Elevation (778 m)",
+#       Site == "STA17" ~ "STA17: North-facing\nHigh Elevation (893 m)",
+#       Site == "STA19" ~ "STA19: North-facing\nMid Elevation (600 m)"
+#     ),
+#     Slope = case_when(
+#       Site %in% c(
+#         "STA2: South-facing\nMid Elevation (560 m)",
+#         "STA9: South-facing\nHigh Elevation (778 m)"
+#       ) ~ "South-facing",
+# 
+#       Site %in% c(
+#         "STA17: North-facing\nHigh Elevation (893 m)",
+#         "STA19: North-facing\nMid Elevation (600 m)"
+#       ) ~ "North-facing"
+#     )
+#   )
+# 
+# # exlcuding pre 1970
+# frost_longterm <- snow_longterm %>%
+#   filter(Date >= as.Date("1970-01-01"))
+# 
+# frost_slopes <- snow_slopes %>%
+#   filter(Date >= as.Date("1970-01-01"))
 
-snow_slopes <- snowFrost_data %>%
-  filter(Site %in% c("STA2", "STA9", "STA17", "STA19")) %>%
-  mutate(
-    Site = case_when(  #giving more context here to the site codes
-      Site == "STA2"  ~ "STA2: South-facing\nMid Elevation (560 m)",
-      Site == "STA9"  ~ "STA9: South-facing\nHigh Elevation (778 m)",
-      Site == "STA17" ~ "STA17: North-facing\nHigh Elevation (893 m)",
-      Site == "STA19" ~ "STA19: North-facing\nMid Elevation (600 m)"
-    ),
-    Slope = case_when(
-      Site %in% c(
-        "STA2: South-facing\nMid Elevation (560 m)",
-        "STA9: South-facing\nHigh Elevation (778 m)"
-      ) ~ "South-facing",
 
-      Site %in% c(
-        "STA17: North-facing\nHigh Elevation (893 m)",
-        "STA19: North-facing\nMid Elevation (600 m)"
-      ) ~ "North-facing"
-    )
-  )
+# # Snow/SWE summaries
+# MonthlySnowData <- snow_longterm %>%
+#   mutate(month = floor_date(Date, "month")) %>%
+#   group_by(month) %>%
+#   summarise(
+#     across(
+#       c(snow_depth, swe),
+#       list(
+#         mean = ~ mean(.x, na.rm = TRUE),
+#         se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+#       ),
+#       .names = "{.col}_{.fn}"
+#     ),
+#     .groups = "drop"
+#   )
 
-# exlcuding pre 1970
-frost_longterm <- snow_longterm %>%
-  filter(Date >= as.Date("1970-01-01"))
-
-frost_slopes <- snow_slopes %>%
-  filter(Date >= as.Date("1970-01-01"))
-
-
-# Snow/SWE summaries
-MonthlySnowData <- snow_longterm %>%
-  mutate(month = floor_date(Date, "month")) %>%
-  group_by(month) %>%
-  summarise(
-    across(
-      c(snow_depth, swe),
-      list(
-        mean = ~ mean(.x, na.rm = TRUE),
-        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
-      ),
-      .names = "{.col}_{.fn}"
-    ),
-    .groups = "drop"
-  )
-
-MonthlySnowData_Site <- snow_longterm %>%
+MonthlySnowData <- snowFrost_data %>%
   mutate(month = floor_date(Date, "month")) %>%
   group_by(month, Site) %>%
   summarise(
@@ -240,37 +251,37 @@ MonthlySnowData_Site <- snow_longterm %>%
     .groups = "drop"
   )
 
-MonthlySnowData_Slope <- snow_slopes %>%
-  mutate(month = floor_date(Date, "month")) %>%
-  group_by(month, Slope) %>%
-  summarise(
-    across(
-      c(snow_depth, swe),
-      list(
-        mean = ~ mean(.x, na.rm = TRUE),
-        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
-      ),
-      .names = "{.col}_{.fn}"
-    ),
-    .groups = "drop"
-  )
+# MonthlySnowData_Slope <- snow_slopes %>%
+#   mutate(month = floor_date(Date, "month")) %>%
+#   group_by(month, Slope) %>%
+#   summarise(
+#     across(
+#       c(snow_depth, swe),
+#       list(
+#         mean = ~ mean(.x, na.rm = TRUE),
+#         se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+#       ),
+#       .names = "{.col}_{.fn}"
+#     ),
+#     .groups = "drop"
+#   )
 
-AnnualSnowData <- snow_longterm %>%
-  mutate(year = floor_date(Date, "year")) %>%
-  group_by(year) %>%
-  summarise(
-    across(
-      c(snow_depth, swe),
-      list(
-        mean = ~ mean(.x, na.rm = TRUE),
-        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
-      ),
-      .names = "{.col}_{.fn}"
-    ),
-    .groups = "drop"
-  )
+# AnnualSnowData <- snow_longterm %>%
+#   mutate(year = floor_date(Date, "year")) %>%
+#   group_by(year) %>%
+#   summarise(
+#     across(
+#       c(snow_depth, swe),
+#       list(
+#         mean = ~ mean(.x, na.rm = TRUE),
+#         se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+#       ),
+#       .names = "{.col}_{.fn}"
+#     ),
+#     .groups = "drop"
+#   )
 
-AnnualSnowData_Site <- snow_longterm %>%
+AnnualSnowData <- snowFrost_data %>%
   mutate(year = floor_date(Date, "year")) %>%
   group_by(year, Site) %>%
   summarise(
@@ -285,20 +296,20 @@ AnnualSnowData_Site <- snow_longterm %>%
     .groups = "drop"
   )
 
-AnnualSnowData_Slope <- snow_slopes %>%
-  mutate(year = floor_date(Date, "year")) %>%
-  group_by(year, Slope) %>%
-  summarise(
-    across(
-      c(snow_depth, swe),
-      list(
-        mean = ~ mean(.x, na.rm = TRUE),
-        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
-      ),
-      .names = "{.col}_{.fn}"
-    ),
-    .groups = "drop"
-  )
+# AnnualSnowData_Slope <- snow_slopes %>%
+#   mutate(year = floor_date(Date, "year")) %>%
+#   group_by(year, Slope) %>%
+#   summarise(
+#     across(
+#       c(snow_depth, swe),
+#       list(
+#         mean = ~ mean(.x, na.rm = TRUE),
+#         se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+#       ),
+#       .names = "{.col}_{.fn}"
+#     ),
+#     .groups = "drop"
+#   )
 
 
 # Frost summaries: 1970 onward
@@ -396,7 +407,12 @@ AnnualFrostData_Slope <- frost_slopes %>%
 #write.csv(data_name, here("data", "data_name.csv"))
 ```
 
-
+```{r save outputs}
+#Save the monthly/annual summary tables as .csv files in the project's output folder
+dir.create(here("output"), showWarnings = FALSE)
+write_csv(MonthlySnowData, here("output", "Snow_monthly.csv"))
+write_csv(AnnualSnowData, here("output", "Snow_annual.csv"))
+```
 
 
 
